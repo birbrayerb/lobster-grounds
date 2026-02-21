@@ -261,7 +261,7 @@ let mp = {
 
 function getWsUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('WS_URL') || 'ws://localhost:3001';
+  return params.get('WS_URL') || 'wss://lobster-grounds-server.onrender.com';
 }
 
 function connectMultiplayer() {
