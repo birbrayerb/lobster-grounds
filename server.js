@@ -37,8 +37,14 @@ function randomColor() {
   return BOAT_COLORS[Math.floor(Math.random() * BOAT_COLORS.length)];
 }
 
-const wss = new WebSocketServer({ port: PORT });
-console.log(`Lobster Grounds server running on port ${PORT}`);
+// HTTP server for Render health checks + WebSocket upgrade
+const http = require('http');
+const server = http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain', 'Access-Control-Allow-Origin': '*' });
+  res.end(`Lobster Grounds server - ${players.size} players online`);
+});
+const wss = new WebSocketServer({ server });
+server.listen(PORT, () => console.log(`Lobster Grounds server running on port ${PORT}`));
 
 wss.on('connection', (ws) => {
   const id = nextPlayerId++;
