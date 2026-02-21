@@ -1,37 +1,40 @@
-# 🦞 Lobster Grounds — Multiplayer
+# 🦞⚔️ Lobster Wars
 
-A real-time multiplayer lobster fishing game. Drop traps, haul lobsters, sell at the dock — with other players in the same ocean.
-
-## Running
-
-### Server
-```bash
-npm install
-node server.js          # runs on port 3001 (or PORT env var)
-```
-
-### Client
-Open `index.html` in a browser. By default connects to `ws://localhost:3001`.
-
-To connect to a different server, add `?WS_URL=ws://your-server:3001` to the URL.
-
-### Controls
-- **WASD/Arrows** — Move boat
-- **SPACE** — Drop trap / Enter shop / Haul trap
-- **E** — Open shop (at dock)
-- **Enter** — Chat
-- **ESC** — Close panels
-
-## Multiplayer Features
-- Real-time player positions (20Hz sync)
-- Shared trap buoys (everyone sees all traps)
-- Chat with floating text bubbles
-- Server-synced time & weather
-- Player names above boats
-- Smooth position interpolation
+A multiplayer lobster fishing game with territory control. Battle for the best fishing grounds!
 
 ## Architecture
-- **server.js** — Node.js WebSocket server (ws library)
-- **index.html** — Self-contained game client
-- Single-player features (shop, upgrades, hold) stay local per client
-- Only positions, traps, and chat are synchronized
+
+- **Client**: Single `index.html` file with Canvas game engine + Supabase Auth
+- **Server**: `server.js` (Node.js + WebSocket) deployed on Render
+- **Database**: Supabase (PostgreSQL) for auth, player data, territories, leaderboard
+
+## Setup
+
+### 1. Database
+Run `schema.sql` in the [Supabase SQL Editor](https://supabase.com/dashboard/project/banjuonrhsfrfbudwelf/sql/new) to create tables and seed territory data.
+
+### 2. Server (Render)
+Set environment variable on Render:
+```
+SUPABASE_SERVICE_KEY=<your-service-role-key>
+```
+
+### 3. Client
+Just open `index.html` in a browser, or host it on any static file server / GitHub Pages.
+
+## Features
+
+- **Auth**: Email/password login & signup via Supabase
+- **Multiplayer**: Real-time WebSocket with position sync, chat, boat collisions
+- **Persistent Progress**: Player data (cash, upgrades, inventory) saved to database
+- **Territory Zones**: 6 named zones visible on map and minimap (claiming mechanics TBD in Phase 2)
+- **Gameplay**: Trap setting, hauling, underwater view, weather, day/night cycle
+
+## Dev
+
+```bash
+npm install
+npm start  # starts server on port 3001
+```
+
+Local testing: open `index.html?WS_URL=ws://localhost:3001`

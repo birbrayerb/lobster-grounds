@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
-<title>Lobster Grounds</title>
+<title>Lobster Wars</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow: hidden; background: #0a1628; font-family: 'Georgia', serif; }
@@ -132,13 +133,105 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
   outline: none; display: none;
 }
 #chat-input:focus { border-color: rgba(232,213,163,0.6); }
+
+/* Auth Screen */
+#auth-screen {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 200;
+  background: linear-gradient(180deg, #0a1628 0%, #132744 40%, #1a3a5c 70%, #0d2137 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #e8d5a3;
+}
+#auth-screen .auth-box {
+  background: rgba(10, 22, 40, 0.9); border: 2px solid rgba(232,213,163,0.3);
+  border-radius: 16px; padding: 32px 40px; width: 380px; max-width: 90vw;
+  backdrop-filter: blur(12px); box-shadow: 0 12px 48px rgba(0,0,0,0.5);
+}
+#auth-screen h1 { font-size: 36px; text-align: center; margin-bottom: 4px; letter-spacing: 3px; }
+#auth-screen .auth-subtitle { text-align: center; font-size: 14px; opacity: 0.5; margin-bottom: 24px; letter-spacing: 2px; }
+#auth-screen .auth-emoji { font-size: 48px; text-align: center; display: block; margin-bottom: 8px; }
+.auth-input {
+  width: 100%; padding: 12px 16px; margin-bottom: 12px; border-radius: 8px;
+  background: rgba(232,213,163,0.08); border: 1px solid rgba(232,213,163,0.25);
+  color: #e8d5a3; font-family: inherit; font-size: 15px; outline: none;
+  transition: border-color 0.2s;
+}
+.auth-input:focus { border-color: rgba(232,213,163,0.6); }
+.auth-input::placeholder { color: rgba(232,213,163,0.35); }
+.auth-btn {
+  width: 100%; padding: 12px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 16px; letter-spacing: 1px; transition: all 0.2s;
+  border: 2px solid rgba(232,213,163,0.5); background: rgba(232,213,163,0.15); color: #e8d5a3;
+  margin-bottom: 8px;
+}
+.auth-btn:hover { background: rgba(232,213,163,0.3); transform: scale(1.02); }
+.auth-btn:disabled { opacity: 0.4; cursor: default; transform: none; }
+.auth-btn.primary { background: rgba(90,255,90,0.15); border-color: rgba(90,255,90,0.4); }
+.auth-btn.primary:hover { background: rgba(90,255,90,0.25); }
+.auth-divider {
+  text-align: center; margin: 16px 0; font-size: 12px; opacity: 0.4;
+  position: relative;
+}
+.auth-divider::before, .auth-divider::after {
+  content: ''; position: absolute; top: 50%; width: 35%;
+  height: 1px; background: rgba(232,213,163,0.2);
+}
+.auth-divider::before { left: 0; }
+.auth-divider::after { right: 0; }
+.auth-social-btn {
+  width: 100%; padding: 10px; border-radius: 8px; margin-bottom: 6px;
+  font-family: inherit; font-size: 13px; cursor: default;
+  border: 1px solid rgba(232,213,163,0.15); background: rgba(232,213,163,0.05);
+  color: rgba(232,213,163,0.35); text-align: center;
+}
+.auth-toggle { text-align: center; margin-top: 16px; font-size: 13px; }
+.auth-toggle a { color: #5aff5a; cursor: pointer; text-decoration: underline; }
+.auth-error { color: #ff5a5a; font-size: 13px; text-align: center; margin-bottom: 8px; min-height: 18px; }
+.auth-skip { text-align: center; margin-top: 12px; }
+.auth-skip a { color: rgba(232,213,163,0.4); cursor: pointer; font-size: 12px; text-decoration: underline; }
+
+/* Logout button */
+#logout-btn {
+  position: absolute; top: 12px; right: 12px;
+  background: rgba(10,22,40,0.85); border: 1px solid rgba(232,213,163,0.3);
+  color: #e8d5a3; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-size: 11px; z-index: 25; display: none;
+}
+#logout-btn:hover { background: rgba(232,213,163,0.2); }
 </style>
 </head>
 <body>
-<div id="start-screen">
+<!-- Auth Screen -->
+<div id="auth-screen">
+  <div class="auth-box">
+    <span class="auth-emoji">🦞⚔️</span>
+    <h1>LOBSTER WARS</h1>
+    <div class="auth-subtitle">Battle for the Grounds</div>
+    <div class="auth-error" id="auth-error"></div>
+    <div id="auth-form-login">
+      <input class="auth-input" type="email" id="auth-email" placeholder="Email" autocomplete="email">
+      <input class="auth-input" type="password" id="auth-password" placeholder="Password" autocomplete="current-password">
+      <button class="auth-btn primary" id="auth-login-btn" onclick="authLogin()">LOG IN</button>
+      <div class="auth-toggle">Don't have an account? <a onclick="showSignup()">Sign up</a></div>
+    </div>
+    <div id="auth-form-signup" style="display:none">
+      <input class="auth-input" type="text" id="auth-signup-name" placeholder="Display Name" maxlength="20">
+      <input class="auth-input" type="email" id="auth-signup-email" placeholder="Email" autocomplete="email">
+      <input class="auth-input" type="password" id="auth-signup-password" placeholder="Password (min 6 chars)" autocomplete="new-password">
+      <button class="auth-btn primary" id="auth-signup-btn" onclick="authSignup()">SIGN UP</button>
+      <div class="auth-toggle">Already have an account? <a onclick="showLogin()">Log in</a></div>
+    </div>
+    <div class="auth-divider">or continue with</div>
+    <button class="auth-social-btn">🔵 Google — Coming Soon</button>
+    <button class="auth-social-btn">🍎 Apple — Coming Soon</button>
+    <button class="auth-social-btn">💬 Discord — Coming Soon</button>
+    <div class="auth-skip"><a onclick="skipAuth()">Play as Guest</a></div>
+  </div>
+</div>
+
+<div id="start-screen" style="display:none">
   <div style="font-size:64px;line-height:1;margin-bottom:8px">🦞</div>
-  <h1>LOBSTER GROUNDS</h1>
-  <div class="subtitle">A Lobster Fishing Simulation</div>
+  <h1>LOBSTER WARS</h1>
+  <div class="subtitle">Battle for the Grounds</div>
   <button id="start-btn">NEW GAME</button>
   <button id="continue-btn">CONTINUE</button>
 </div>
@@ -196,6 +289,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
   <div id="controls-hint"></div>
   <div id="connection-status">Connecting...</div>
   <div id="player-count">👥 0</div>
+  <button id="logout-btn" onclick="authLogout()">🚪 Logout</button>
   <div id="chat-container">
     <div id="chat-log"></div>
     <input id="chat-input" type="text" placeholder="Press Enter to chat..." maxlength="200">
@@ -203,6 +297,118 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 </div>
 
 <script>
+// ============= SUPABASE AUTH =============
+const SUPABASE_URL = 'https://banjuonrhsfrfbudwelf.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJhbmp1b25yaHNmcmZidWR3ZWxmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE2OTM2ODUsImV4cCI6MjA4NzI2OTY4NX0.6jURyNUvB_r7_5dMA6fGhU2Ksyypz8FKe2BsIFnY3n4';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+let authUser = null;
+let authSession = null;
+let isGuest = false;
+
+function showLogin() {
+  document.getElementById('auth-form-login').style.display = 'block';
+  document.getElementById('auth-form-signup').style.display = 'none';
+  document.getElementById('auth-error').textContent = '';
+}
+function showSignup() {
+  document.getElementById('auth-form-login').style.display = 'none';
+  document.getElementById('auth-form-signup').style.display = 'block';
+  document.getElementById('auth-error').textContent = '';
+}
+
+async function authLogin() {
+  const email = document.getElementById('auth-email').value.trim();
+  const password = document.getElementById('auth-password').value;
+  if (!email || !password) { document.getElementById('auth-error').textContent = 'Enter email and password'; return; }
+  
+  document.getElementById('auth-login-btn').disabled = true;
+  document.getElementById('auth-error').textContent = '';
+  
+  const { data, error } = await sbClient.auth.signInWithPassword({ email, password });
+  document.getElementById('auth-login-btn').disabled = false;
+  
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  
+  authUser = data.user;
+  authSession = data.session;
+  onAuthSuccess();
+}
+
+async function authSignup() {
+  const name = document.getElementById('auth-signup-name').value.trim() || 'New Lobsterman';
+  const email = document.getElementById('auth-signup-email').value.trim();
+  const password = document.getElementById('auth-signup-password').value;
+  if (!email || !password) { document.getElementById('auth-error').textContent = 'Enter email and password'; return; }
+  if (password.length < 6) { document.getElementById('auth-error').textContent = 'Password must be at least 6 characters'; return; }
+  
+  document.getElementById('auth-signup-btn').disabled = true;
+  document.getElementById('auth-error').textContent = '';
+  
+  const { data, error } = await sbClient.auth.signUp({
+    email, password,
+    options: { data: { display_name: name } }
+  });
+  document.getElementById('auth-signup-btn').disabled = false;
+  
+  if (error) { document.getElementById('auth-error').textContent = error.message; return; }
+  
+  if (data.user && !data.session) {
+    document.getElementById('auth-error').textContent = 'Check your email to confirm your account!';
+    document.getElementById('auth-error').style.color = '#5aff5a';
+    return;
+  }
+  
+  authUser = data.user;
+  authSession = data.session;
+  onAuthSuccess();
+}
+
+function skipAuth() {
+  isGuest = true;
+  onAuthSuccess();
+}
+
+async function authLogout() {
+  await sbClient.auth.signOut();
+  authUser = null;
+  authSession = null;
+  isGuest = false;
+  document.getElementById('logout-btn').style.display = 'none';
+  location.reload();
+}
+
+function onAuthSuccess() {
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('start-screen').style.display = 'flex';
+  if (!isGuest) {
+    document.getElementById('logout-btn').style.display = 'block';
+  }
+  // Check for save
+  if (localStorage.getItem('lobster-wars-save') || localStorage.getItem('lobster-grounds-save')) {
+    document.getElementById('continue-btn').style.display = 'block';
+  }
+}
+
+// Auto-login check on load
+(async function checkExistingSession() {
+  const { data: { session } } = await sbClient.auth.getSession();
+  if (session) {
+    authUser = session.user;
+    authSession = session;
+    onAuthSuccess();
+  }
+})();
+
+// Handle enter key in auth forms
+document.addEventListener('keydown', function authKeyHandler(e) {
+  if (document.getElementById('auth-screen').style.display === 'none') return;
+  if (e.key === 'Enter') {
+    if (document.getElementById('auth-form-signup').style.display !== 'none') authSignup();
+    else authLogin();
+  }
+});
+
 // ============= GAME STATE =============
 const C = document.getElementById('game');
 const ctx = C.getContext('2d');
@@ -256,13 +462,14 @@ let mp = {
   players: [], // other players from server
   traps: [], // all traps from server (other players')
   chatMessages: [], // from server
+  territories: [], // territory zones from server
   lastPositionSend: 0,
   otherPlayerPositions: new Map(), // id -> {current, target} for lerping
 };
 
 function getWsUrl() {
   const params = new URLSearchParams(window.location.search);
-  return params.get('WS_URL') || 'wss://lobster-grounds-server.onrender.com';
+  return params.get('WS_URL') || 'wss://lobster-grounds-server.onrender.com'; // Lobster Wars server
 }
 
 function connectMultiplayer() {
@@ -284,6 +491,10 @@ function connectMultiplayer() {
     statusEl.textContent = '✓ Connected';
     statusEl.className = 'connected';
     setTimeout(() => { if (mp.connected) statusEl.style.display = 'none'; }, 2000);
+    // Send auth token if logged in
+    if (authSession && authSession.access_token) {
+      mp.ws.send(JSON.stringify({ type: 'auth', token: authSession.access_token }));
+    }
     // Send stored identity so server can restore our name
     const storedName = localStorage.getItem('lobster-player-name');
     const storedColor = localStorage.getItem('lobster-player-color');
@@ -315,16 +526,39 @@ function handleServerMessage(msg) {
     mp.myId = msg.id;
     mp.myName = msg.name;
     mp.myColor = msg.color;
-    // Persist identity for reconnects
     localStorage.setItem('lobster-player-name', msg.name);
     localStorage.setItem('lobster-player-color', msg.color);
     localStorage.setItem('lobster-player-id', msg.id);
-    // Apply server game time
     if (msg.gameTime) {
       state.day = msg.gameTime.day;
       state.timeOfDay = msg.gameTime.timeOfDay;
       state.weather = msg.gameTime.weather;
     }
+    // Store territories
+    if (msg.territories) {
+      mp.territories = msg.territories;
+    }
+  } else if (msg.type === 'authSuccess') {
+    // Apply saved player data from server
+    const pd = msg.playerData;
+    if (pd) {
+      if (pd.cash !== undefined) state.cash = pd.cash;
+      if (pd.display_name) mp.myName = pd.display_name;
+      if (pd.upgrades) {
+        if (pd.upgrades.boatLevel) state.boatLevel = pd.upgrades.boatLevel;
+        if (pd.upgrades.trapLevel) state.trapLevel = pd.upgrades.trapLevel;
+        if (pd.upgrades.baitLevel) state.baitLevel = pd.upgrades.baitLevel;
+        if (pd.upgrades.holdLevel) state.holdLevel = pd.upgrades.holdLevel;
+        if (pd.upgrades.maxTraps) state.maxTraps = pd.upgrades.maxTraps;
+      }
+      if (pd.inventory) {
+        if (pd.inventory.bait !== undefined) state.bait = pd.inventory.bait;
+        if (pd.inventory.trapSupply !== undefined) state.trapSupply = pd.inventory.trapSupply;
+      }
+      updateHUD();
+    }
+  } else if (msg.type === 'authError') {
+    console.log('Auth error:', msg.message);
   } else if (msg.type === 'state') {
     // Other players (exclude self)
     mp.players = msg.players.filter(p => p.id !== mp.myId);
@@ -676,6 +910,33 @@ function drawTopDown(dt) {
   ctx.lineWidth = 2;
   ctx.strokeRect(dockPx, dockPy, DOCK_W * TILE, DOCK_H * TILE);
 
+  // Draw territory zones
+  for (let zone of mp.territories) {
+    if (!zone.zone_bounds) continue;
+    let zb = zone.zone_bounds;
+    let zx = zb.x * TILE - cx, zy = zb.y * TILE - cy;
+    let zw = zb.w * TILE, zh = zb.h * TILE;
+    // Zone fill
+    ctx.fillStyle = zb.color || 'rgba(100,100,255,0.08)';
+    ctx.fillRect(zx, zy, zw, zh);
+    // Zone border
+    ctx.strokeStyle = (zb.color || 'rgba(100,100,255,0.3)').replace(/[\d.]+\)$/, '0.4)');
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([8, 4]);
+    ctx.strokeRect(zx, zy, zw, zh);
+    ctx.setLineDash([]);
+    // Zone label
+    ctx.fillStyle = 'rgba(232,213,163,0.5)';
+    ctx.font = '12px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText(zone.zone_name, zx + zw/2, zy + 16);
+    if (zone.owner_name) {
+      ctx.fillStyle = 'rgba(255,255,100,0.5)';
+      ctx.font = '10px Georgia';
+      ctx.fillText('👑 ' + zone.owner_name, zx + zw/2, zy + 30);
+    }
+  }
+
   // Draw trap buoys
   for (let trap of state.traps) {
     let bx = trap.x - cx, by = trap.y - cy;
@@ -930,6 +1191,15 @@ function drawMiniMap() {
   ctx.lineWidth = 1;
   ctx.stroke();
   ctx.clip();
+
+  // Territory zones on minimap
+  for (let zone of mp.territories) {
+    if (!zone.zone_bounds) continue;
+    let zb = zone.zone_bounds;
+    ctx.fillStyle = zb.color || 'rgba(100,100,255,0.15)';
+    ctx.fillRect(mmX + (zb.x / MAP_W) * mmW, mmY + (zb.y / MAP_H) * mmH,
+                 (zb.w / MAP_W) * mmW, (zb.h / MAP_H) * mmH);
+  }
 
   // Simplified map tiles (draw every 4th tile for performance)
   let step = 4;
@@ -2076,6 +2346,23 @@ function update(dt) {
       sendPosition();
       mp.lastPositionSend = now;
     }
+    
+    // Sync player state to server periodically (every 10s)
+    if (!mp._lastSync) mp._lastSync = 0;
+    if (now - mp._lastSync > 10000 && mp.ws && mp.ws.readyState === 1 && authSession) {
+      mp.ws.send(JSON.stringify({
+        type: 'updatePlayer',
+        cash: state.cash,
+        upgrades: {
+          boatLevel: state.boatLevel, trapLevel: state.trapLevel,
+          baitLevel: state.baitLevel, holdLevel: state.holdLevel, maxTraps: state.maxTraps,
+        },
+        inventory: { bait: state.bait, trapSupply: state.trapSupply, hold: state.hold },
+        stats: state.stats || {},
+        displayName: mp.myName,
+      }));
+      mp._lastSync = now;
+    }
 
     // Boat movement
     let speed = getBoatSpeed();
@@ -2150,11 +2437,11 @@ function saveGame() {
     maxTraps: state.maxTraps, boatLevel: state.boatLevel, trapLevel: state.trapLevel,
     baitLevel: state.baitLevel, holdLevel: state.holdLevel,
   };
-  localStorage.setItem('lobster-grounds-save', JSON.stringify(save));
+  localStorage.setItem('lobster-wars-save', JSON.stringify(save));
 }
 
 function loadGame() {
-  let data = localStorage.getItem('lobster-grounds-save');
+  let data = localStorage.getItem('lobster-wars-save') || localStorage.getItem('lobster-grounds-save');
   if (!data) return false;
   try {
     let save = JSON.parse(data);
@@ -2202,10 +2489,7 @@ function startGame(continuing) {
   lastTime = performance.now();
 }
 
-// Check for save
-if (localStorage.getItem('lobster-grounds-save')) {
-  document.getElementById('continue-btn').style.display = 'block';
-}
+// Save check moved to onAuthSuccess
 
 // Prevent pinch-zoom on mobile
 document.addEventListener('gesturestart', e => e.preventDefault());

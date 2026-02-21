@@ -1,12 +1,14 @@
 {
-  "name": "lobster-grounds-server",
-  "version": "1.0.0",
-  "description": "Multiplayer lobster fishing game server",
+  "name": "lobster-wars-server",
+  "version": "2.0.0",
+  "description": "Lobster Wars multiplayer game server",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "setup-db": "node setup-db.mjs"
   },
   "dependencies": {
-    "ws": "^8.16.0"
+    "ws": "^8.16.0",
+    "@supabase/supabase-js": "^2.49.0"
   }
 }
