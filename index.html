@@ -1,0 +1,1640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Lobster Grounds</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: #0a1628; font-family: 'Georgia', serif; }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: default; }
+#ui-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 10;
+}
+#ui-overlay > * { pointer-events: auto; }
+#hud {
+  position: absolute; top: 12px; left: 12px; right: 12px;
+  display: flex; justify-content: space-between; align-items: flex-start;
+  font-size: 14px; color: #e8d5a3;
+}
+.hud-panel {
+  background: rgba(10, 22, 40, 0.85); border: 1px solid rgba(232,213,163,0.3);
+  border-radius: 8px; padding: 8px 14px; backdrop-filter: blur(4px);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+}
+.hud-panel .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
+.hud-panel .value { font-size: 18px; font-weight: bold; }
+#shop-panel, #catch-panel, #upgrade-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: rgba(10, 22, 40, 0.95); border: 2px solid rgba(232,213,163,0.4);
+  border-radius: 12px; padding: 24px 32px; min-width: 320px; max-width: 420px;
+  color: #e8d5a3; display: none; backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+}
+.panel-title { font-size: 22px; text-align: center; margin-bottom: 16px; border-bottom: 1px solid rgba(232,213,163,0.2); padding-bottom: 8px; }
+.shop-item, .upgrade-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; border-bottom: 1px solid rgba(232,213,163,0.1);
+}
+.shop-btn, .upgrade-btn {
+  background: rgba(232,213,163,0.15); border: 1px solid rgba(232,213,163,0.4);
+  color: #e8d5a3; padding: 6px 14px; border-radius: 6px; cursor: pointer;
+  font-family: inherit; font-size: 13px; transition: all 0.2s;
+}
+.shop-btn:hover, .upgrade-btn:hover { background: rgba(232,213,163,0.3); }
+.shop-btn:disabled, .upgrade-btn:disabled { opacity: 0.3; cursor: default; }
+.close-btn {
+  position: absolute; top: 8px; right: 12px; background: none; border: none;
+  color: #e8d5a3; font-size: 24px; cursor: pointer; opacity: 0.6;
+}
+.close-btn:hover { opacity: 1; }
+#controls-hint {
+  position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font-size: 12px; color: rgba(232,213,163,0.5); text-align: center;
+}
+#time-btn {
+  position: absolute; bottom: 12px; right: 12px;
+  background: rgba(10,22,40,0.85); border: 1px solid rgba(232,213,163,0.3);
+  color: #e8d5a3; padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 13px;
+}
+#time-btn:hover { background: rgba(232,213,163,0.2); }
+#notification {
+  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+  background: rgba(10,22,40,0.9); border: 1px solid rgba(232,213,163,0.4);
+  border-radius: 8px; padding: 10px 20px; color: #e8d5a3; font-size: 14px;
+  display: none; white-space: nowrap; transition: opacity 0.3s;
+}
+#start-screen {
+  position: fixed; top:0; left:0; width:100%; height:100%; z-index: 100;
+  background: linear-gradient(180deg, #0a1628 0%, #132744 40%, #1a3a5c 70%, #0d2137 100%);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  color: #e8d5a3;
+}
+#start-screen h1 { font-size: 48px; margin-bottom: 8px; text-shadow: 0 2px 12px rgba(0,0,0,0.5); letter-spacing: 3px; }
+#start-screen .subtitle { font-size: 16px; opacity: 0.6; margin-bottom: 40px; letter-spacing: 2px; }
+#start-btn {
+  background: rgba(232,213,163,0.15); border: 2px solid rgba(232,213,163,0.5);
+  color: #e8d5a3; padding: 14px 40px; border-radius: 10px; cursor: pointer;
+  font-family: inherit; font-size: 18px; letter-spacing: 2px; transition: all 0.3s;
+}
+#start-btn:hover { background: rgba(232,213,163,0.3); transform: scale(1.05); }
+#continue-btn {
+  margin-top: 12px; background: none; border: 1px solid rgba(232,213,163,0.3);
+  color: #e8d5a3; padding: 10px 30px; border-radius: 8px; cursor: pointer;
+  font-family: inherit; font-size: 14px; display: none; transition: all 0.3s;
+}
+#continue-btn:hover { background: rgba(232,213,163,0.15); }
+.catch-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 6px 0; border-bottom: 1px solid rgba(232,213,163,0.1);
+}
+.catch-action {
+  background: rgba(232,213,163,0.15); border: 1px solid rgba(232,213,163,0.4);
+  color: #e8d5a3; padding: 4px 10px; border-radius: 4px; cursor: pointer;
+  font-family: inherit; font-size: 12px; margin-left: 6px;
+}
+.catch-action:hover { background: rgba(232,213,163,0.3); }
+.catch-action.keep { border-color: #5a5; }
+.catch-action.toss { border-color: #a55; }
+</style>
+</head>
+<body>
+<div id="start-screen">
+  <h1>🦞 LOBSTER GROUNDS</h1>
+  <div class="subtitle">A Lobster Fishing Simulation</div>
+  <button id="start-btn">NEW GAME</button>
+  <button id="continue-btn">CONTINUE</button>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="ui-overlay">
+  <div id="hud">
+    <div class="hud-panel">
+      <div class="label">Cash</div>
+      <div class="value" id="hud-cash">$500</div>
+    </div>
+    <div class="hud-panel" style="text-align:center">
+      <div class="label" id="hud-time-label">Day 1</div>
+      <div class="value" id="hud-time">6:00 AM</div>
+      <div class="label" id="hud-weather">Clear</div>
+    </div>
+    <div class="hud-panel" style="text-align:right">
+      <div class="label">Hold</div>
+      <div class="value" id="hud-hold">0 / 20</div>
+      <div class="label" id="hud-traps-info">Traps: 0 set</div>
+    </div>
+  </div>
+
+  <div id="notification"></div>
+
+  <div id="shop-panel">
+    <button class="close-btn" onclick="closeShop()">&times;</button>
+    <div class="panel-title">🏪 Dock Shop</div>
+    <div id="shop-items"></div>
+    <div style="margin-top:16px; text-align:center">
+      <button class="shop-btn" onclick="openUpgrades()" style="width:100%">⬆ Upgrades</button>
+    </div>
+    <div style="margin-top:8px; text-align:center">
+      <button class="shop-btn" id="sell-btn" onclick="sellCatch()" style="width:100%">💰 Sell Catch</button>
+    </div>
+  </div>
+
+  <div id="upgrade-panel">
+    <button class="close-btn" onclick="closeUpgrades()">&times;</button>
+    <div class="panel-title">⬆ Upgrades</div>
+    <div id="upgrade-items"></div>
+  </div>
+
+  <div id="catch-panel">
+    <button class="close-btn" onclick="closeCatch()">&times;</button>
+    <div class="panel-title">🦞 Trap Contents</div>
+    <div id="catch-items"></div>
+    <div style="margin-top:12px; text-align:center">
+      <button class="shop-btn" onclick="closeCatch()">Done</button>
+    </div>
+  </div>
+
+  <button id="time-btn" onclick="toggleTimeSpeed()">⏩ Speed Up</button>
+  <div id="controls-hint"></div>
+</div>
+
+<script>
+// ============= GAME STATE =============
+const C = document.getElementById('game');
+const ctx = C.getContext('2d');
+let W, H, dpr;
+
+const TILE = 40;
+const MAP_W = 120, MAP_H = 120;
+const DOCK_X = 5, DOCK_Y = 55, DOCK_W = 8, DOCK_H = 10;
+
+let state = {
+  mode: 'topdown', // topdown | underwater
+  cash: 500,
+  day: 1,
+  timeOfDay: 6, // hours (0-24)
+  timeSpeed: 1, // 1 = normal, 5 = fast
+  weather: 'clear', // clear, cloudy, foggy, rainy
+  weatherTimer: 0,
+  boat: { x: (DOCK_X + DOCK_W/2) * TILE, y: (DOCK_Y + DOCK_H/2) * TILE, angle: 0, speed: 0 },
+  camera: { x: 0, y: 0 },
+  traps: [], // { x, y, bait, timeSet, contents: [], buoyColor }
+  hold: [], // caught lobsters { size, type }
+  holdCapacity: 20,
+  bait: 10,
+  trapSupply: 5,
+  maxTraps: 10,
+  boatLevel: 1,
+  trapLevel: 1,
+  baitLevel: 1,
+  holdLevel: 1,
+  trapsSet: 0,
+  // underwater
+  uwTrap: null, // which trap we're viewing
+  uwCatch: [], // contents to sort
+  uwAnimY: 0,
+  uwHauling: false,
+  // input
+  keys: {},
+  touch: null,
+  shopOpen: false,
+  upgradeOpen: false,
+  catchOpen: false,
+};
+
+// Map data - procedurally generated
+let mapData = []; // 0=deep, 1=medium, 2=shallow, 3=rocky, 4=dock
+let mapGenerated = false;
+
+function generateMap() {
+  // Seed-based simple noise
+  mapData = [];
+  for (let y = 0; y < MAP_H; y++) {
+    mapData[y] = [];
+    for (let x = 0; x < MAP_W; x++) {
+      // Dock area
+      if (x >= DOCK_X && x < DOCK_X + DOCK_W && y >= DOCK_Y && y < DOCK_Y + DOCK_H) {
+        mapData[y][x] = 4;
+        continue;
+      }
+      // Simple noise for depth
+      let nx = x / MAP_W, ny = y / MAP_H;
+      let d = Math.sin(nx * 12.5 + 1.3) * Math.cos(ny * 9.7 + 2.1) * 0.5
+            + Math.sin(nx * 25 + ny * 18) * 0.25
+            + Math.cos(nx * 7 - ny * 13 + 0.7) * 0.25;
+      // Distance from shore (left edge)
+      let shore = x / MAP_W;
+      d = d * 0.5 + shore * 0.5;
+
+      if (d < 0.2) mapData[y][x] = 2; // shallow
+      else if (d < 0.45) mapData[y][x] = 1; // medium
+      else mapData[y][x] = 0; // deep
+
+      // Rocky patches
+      let r = Math.sin(x * 3.7 + y * 2.3) * Math.cos(x * 1.9 - y * 4.1);
+      if (r > 0.6 && d > 0.25) mapData[y][x] = 3;
+    }
+  }
+  mapGenerated = true;
+}
+
+// ============= RESIZE =============
+function resize() {
+  dpr = window.devicePixelRatio || 1;
+  W = window.innerWidth;
+  H = window.innerHeight;
+  C.width = W * dpr;
+  C.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ============= COLORS =============
+const COLORS = {
+  deepWater: '#0d2137',
+  medWater: '#143652',
+  shallowWater: '#1a5276',
+  rocky: '#2c3e50',
+  dock: '#8B6914',
+  dockLight: '#a67c00',
+  boat: '#c0392b',
+  boatDeck: '#e74c3c',
+  buoyEmpty: '#e74c3c',
+  buoyPartial: '#f39c12',
+  buoyFull: '#27ae60',
+  sand: '#c2a366',
+  kelp: '#1a6b3c',
+  kelpLight: '#22884d',
+  lobster: '#c0392b',
+  lobsterDark: '#922b21',
+  crab: '#d4843e',
+};
+
+// ============= WATER ANIMATION =============
+let waveTime = 0;
+let particles = []; // bubbles, splashes
+
+function addParticle(x, y, type) {
+  particles.push({ x, y, type, life: 1, vx: (Math.random()-0.5)*2, vy: -Math.random()*2, size: Math.random()*3+1 });
+}
+
+// ============= TOP-DOWN RENDERING =============
+function drawTopDown(dt) {
+  waveTime += dt;
+
+  // Camera follows boat
+  let targetCX = state.boat.x - W/2;
+  let targetCY = state.boat.y - H/2;
+  state.camera.x += (targetCX - state.camera.x) * 0.08;
+  state.camera.y += (targetCY - state.camera.y) * 0.08;
+
+  let cx = state.camera.x, cy = state.camera.y;
+
+  // Visible tile range
+  let sx = Math.floor(cx / TILE) - 1;
+  let sy = Math.floor(cy / TILE) - 1;
+  let ex = Math.ceil((cx + W) / TILE) + 1;
+  let ey = Math.ceil((cy + H) / TILE) + 1;
+
+  // Time-of-day overlay
+  let daylight = getDaylight();
+
+  // Draw tiles
+  for (let y = Math.max(0, sy); y < Math.min(MAP_H, ey); y++) {
+    for (let x = Math.max(0, sx); x < Math.min(MAP_W, ex); x++) {
+      let px = x * TILE - cx, py = y * TILE - cy;
+      let tile = mapData[y][x];
+
+      // Wave shimmer
+      let shimmer = Math.sin(waveTime * 2 + x * 0.8 + y * 0.6) * 8;
+
+      if (tile === 4) {
+        ctx.fillStyle = COLORS.dock;
+        ctx.fillRect(px, py, TILE, TILE);
+        // Dock planks
+        if ((x + y) % 2 === 0) {
+          ctx.fillStyle = COLORS.dockLight;
+          ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
+        }
+      } else {
+        let baseColor;
+        if (tile === 0) baseColor = COLORS.deepWater;
+        else if (tile === 1) baseColor = COLORS.medWater;
+        else if (tile === 2) baseColor = COLORS.shallowWater;
+        else baseColor = COLORS.rocky;
+
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(px, py, TILE, TILE);
+
+        // Wave highlight
+        ctx.fillStyle = `rgba(255,255,255,${0.02 + Math.max(0, shimmer) * 0.003})`;
+        ctx.fillRect(px, py, TILE, TILE);
+
+        // Rocky texture
+        if (tile === 3) {
+          ctx.fillStyle = 'rgba(0,0,0,0.15)';
+          let rx = (x * 7 + y * 13) % 20;
+          let ry = (x * 11 + y * 3) % 20;
+          ctx.beginPath();
+          ctx.arc(px + rx + 5, py + ry + 5, 4 + (rx % 3), 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(px + (rx + 12) % TILE, py + (ry + 15) % TILE, 3, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+    }
+  }
+
+  // Draw grid lines (subtle)
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 0.5;
+  for (let x = Math.max(0, sx); x < Math.min(MAP_W, ex); x++) {
+    ctx.beginPath();
+    ctx.moveTo(x * TILE - cx, Math.max(0, sy) * TILE - cy);
+    ctx.lineTo(x * TILE - cx, Math.min(MAP_H, ey) * TILE - cy);
+    ctx.stroke();
+  }
+
+  // Draw dock details
+  let dockPx = DOCK_X * TILE - cx, dockPy = DOCK_Y * TILE - cy;
+  // Shop sign
+  ctx.fillStyle = '#e8d5a3';
+  ctx.font = '14px Georgia';
+  ctx.textAlign = 'center';
+  ctx.fillText('🏪 SHOP', dockPx + DOCK_W * TILE / 2, dockPy - 8);
+  // Dock border
+  ctx.strokeStyle = '#5a4a00';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(dockPx, dockPy, DOCK_W * TILE, DOCK_H * TILE);
+
+  // Draw trap buoys
+  for (let trap of state.traps) {
+    let bx = trap.x - cx, by = trap.y - cy;
+    if (bx < -20 || bx > W + 20 || by < -20 || by > H + 20) continue;
+
+    let bobY = Math.sin(waveTime * 3 + trap.x * 0.1) * 3;
+    let elapsed = state.timeOfDay - trap.timeSet + (state.day - trap.daySet) * 24;
+    let readiness = Math.min(1, elapsed / getTrapFillTime());
+
+    let color;
+    if (readiness < 0.3) color = COLORS.buoyEmpty;
+    else if (readiness < 0.8) color = COLORS.buoyPartial;
+    else color = COLORS.buoyFull;
+
+    // Buoy stick
+    ctx.strokeStyle = '#666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(bx, by + bobY + 8);
+    ctx.lineTo(bx, by + bobY - 8);
+    ctx.stroke();
+
+    // Buoy ball
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(bx, by + bobY, 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+
+    // Highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.beginPath();
+    ctx.arc(bx - 2, by + bobY - 2, 2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Readiness indicator (if nearby)
+    let dist = Math.hypot(trap.x - state.boat.x, trap.y - state.boat.y);
+    if (dist < 80) {
+      ctx.fillStyle = 'rgba(232,213,163,0.8)';
+      ctx.font = '11px Georgia';
+      ctx.textAlign = 'center';
+      if (readiness >= 0.8) ctx.fillText('Ready!', bx, by - 16);
+      else ctx.fillText(Math.floor(readiness * 100) + '%', bx, by - 16);
+    }
+  }
+
+  // Draw boat
+  drawBoat(cx, cy);
+
+  // NPC boats
+  drawNPCBoats(cx, cy);
+
+  // Particles
+  updateParticles(dt, cx, cy);
+
+  // Daylight/night overlay
+  if (daylight < 1) {
+    ctx.fillStyle = `rgba(0, 5, 20, ${(1 - daylight) * 0.6})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
+  // Weather overlay
+  drawWeather(dt);
+
+  // Fog
+  if (state.weather === 'foggy') {
+    ctx.fillStyle = 'rgba(180, 190, 200, 0.4)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+let npcBoats = [];
+function initNPCBoats() {
+  for (let i = 0; i < 4; i++) {
+    npcBoats.push({
+      x: 1200 + Math.random() * 2800,
+      y: 800 + Math.random() * 3000,
+      angle: Math.random() * Math.PI * 2,
+      speed: 0.3 + Math.random() * 0.5,
+      turnTimer: Math.random() * 200,
+      color: ['#2c3e50', '#8e44ad', '#16a085', '#d35400'][i],
+    });
+  }
+}
+
+function drawNPCBoats(cx, cy) {
+  for (let npc of npcBoats) {
+    npc.turnTimer -= 1;
+    if (npc.turnTimer <= 0) {
+      npc.angle += (Math.random() - 0.5) * 1;
+      npc.turnTimer = 100 + Math.random() * 200;
+    }
+    npc.x += Math.cos(npc.angle) * npc.speed;
+    npc.y += Math.sin(npc.angle) * npc.speed;
+    // Keep in bounds
+    if (npc.x < 400) npc.angle = 0;
+    if (npc.x > MAP_W * TILE - 400) npc.angle = Math.PI;
+    if (npc.y < 400) npc.angle = Math.PI / 2;
+    if (npc.y > MAP_H * TILE - 400) npc.angle = -Math.PI / 2;
+
+    let bx = npc.x - cx, by = npc.y - cy;
+    if (bx < -60 || bx > W + 60 || by < -60 || by > H + 60) continue;
+
+    ctx.save();
+    ctx.translate(bx, by);
+    ctx.rotate(npc.angle);
+    // Hull
+    ctx.fillStyle = npc.color;
+    ctx.beginPath();
+    ctx.moveTo(16, 0);
+    ctx.lineTo(-12, -8);
+    ctx.lineTo(-12, 8);
+    ctx.closePath();
+    ctx.fill();
+    // Cabin
+    ctx.fillStyle = 'rgba(255,255,255,0.3)';
+    ctx.fillRect(-8, -4, 8, 8);
+    ctx.restore();
+  }
+}
+
+function drawBoat(cx, cy) {
+  let bx = state.boat.x - cx;
+  let by = state.boat.y - cy;
+
+  ctx.save();
+  ctx.translate(bx, by);
+  ctx.rotate(state.boat.angle);
+
+  let scale = 1 + state.boatLevel * 0.15;
+
+  // Wake
+  if (Math.abs(state.boat.speed) > 0.5) {
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    for (let i = 0; i < 3; i++) {
+      let wx = -20 - i * 8 + Math.random() * 4;
+      let wy = (Math.random() - 0.5) * (10 + i * 5);
+      ctx.beginPath();
+      ctx.arc(wx * scale, wy, 3 + i, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Hull
+  ctx.fillStyle = COLORS.boat;
+  ctx.beginPath();
+  ctx.moveTo(20 * scale, 0);
+  ctx.quadraticCurveTo(18 * scale, -10 * scale, -14 * scale, -10 * scale);
+  ctx.lineTo(-16 * scale, 0);
+  ctx.lineTo(-14 * scale, 10 * scale);
+  ctx.quadraticCurveTo(18 * scale, 10 * scale, 20 * scale, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Deck
+  ctx.fillStyle = COLORS.boatDeck;
+  ctx.beginPath();
+  ctx.moveTo(16 * scale, 0);
+  ctx.quadraticCurveTo(14 * scale, -7 * scale, -10 * scale, -7 * scale);
+  ctx.lineTo(-12 * scale, 0);
+  ctx.lineTo(-10 * scale, 7 * scale);
+  ctx.quadraticCurveTo(14 * scale, 7 * scale, 16 * scale, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // Cabin
+  ctx.fillStyle = '#f5f5dc';
+  ctx.fillRect(-8 * scale, -5 * scale, 10 * scale, 10 * scale);
+  ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+  ctx.strokeRect(-8 * scale, -5 * scale, 10 * scale, 10 * scale);
+  // Window
+  ctx.fillStyle = 'rgba(100,180,255,0.5)';
+  ctx.fillRect(-5 * scale, -3 * scale, 4 * scale, 6 * scale);
+
+  ctx.restore();
+}
+
+// ============= UNDERWATER RENDERING =============
+let uwKelp = [];
+let uwFish = [];
+let uwBubbles = [];
+let uwLobsters = [];
+let uwRocks = [];
+let uwInitialized = false;
+
+function initUnderwater() {
+  uwKelp = [];
+  uwFish = [];
+  uwBubbles = [];
+  uwLobsters = [];
+  uwRocks = [];
+
+  // Kelp
+  for (let i = 0; i < 12; i++) {
+    uwKelp.push({
+      x: Math.random() * W,
+      segments: 4 + Math.floor(Math.random() * 5),
+      height: 60 + Math.random() * 100,
+      phase: Math.random() * Math.PI * 2,
+      color: Math.random() > 0.5 ? COLORS.kelp : COLORS.kelpLight,
+    });
+  }
+
+  // Fish
+  for (let i = 0; i < 8; i++) {
+    uwFish.push({
+      x: Math.random() * W,
+      y: 100 + Math.random() * (H - 250),
+      vx: (Math.random() - 0.5) * 3,
+      size: 8 + Math.random() * 12,
+      color: ['#a0c4ff', '#bdb2ff', '#ffc6ff', '#caffbf', '#fdffb6'][Math.floor(Math.random() * 5)],
+    });
+  }
+
+  // Rocks
+  for (let i = 0; i < 8; i++) {
+    uwRocks.push({
+      x: Math.random() * W,
+      w: 30 + Math.random() * 60,
+      h: 15 + Math.random() * 30,
+      color: `rgb(${60+Math.random()*40}, ${55+Math.random()*30}, ${50+Math.random()*20})`,
+    });
+  }
+
+  uwInitialized = true;
+}
+
+function drawUnderwater(dt) {
+  waveTime += dt;
+
+  // Sky/surface gradient
+  let grd = ctx.createLinearGradient(0, 0, 0, H);
+  grd.addColorStop(0, '#1a5276');
+  grd.addColorStop(0.15, '#0d3d56');
+  grd.addColorStop(0.5, '#0a2840');
+  grd.addColorStop(1, '#061620');
+  ctx.fillStyle = grd;
+  ctx.fillRect(0, 0, W, H);
+
+  // Light rays from surface
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    let rx = W * 0.2 + i * W * 0.15 + Math.sin(waveTime * 0.5 + i) * 30;
+    let alpha = 0.03 + Math.sin(waveTime * 0.3 + i * 1.5) * 0.015;
+    ctx.fillStyle = `rgba(120, 200, 255, ${alpha})`;
+    ctx.beginPath();
+    ctx.moveTo(rx - 20, 0);
+    ctx.lineTo(rx - 60 + Math.sin(waveTime * 0.2 + i) * 20, H);
+    ctx.lineTo(rx + 60 + Math.sin(waveTime * 0.2 + i) * 20, H);
+    ctx.lineTo(rx + 20, 0);
+    ctx.closePath();
+    ctx.fill();
+  }
+  ctx.restore();
+
+  // Water surface waves at top
+  ctx.fillStyle = 'rgba(100, 180, 255, 0.15)';
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  for (let x = 0; x <= W; x += 10) {
+    ctx.lineTo(x, 20 + Math.sin(waveTime * 3 + x * 0.03) * 8);
+  }
+  ctx.lineTo(W, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  let floorY = H - 80;
+
+  // Rocks on floor
+  for (let rock of uwRocks) {
+    ctx.fillStyle = rock.color;
+    ctx.beginPath();
+    ctx.ellipse(rock.x, floorY + 5, rock.w / 2, rock.h / 2, 0, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath();
+    ctx.ellipse(rock.x, floorY - rock.h/3, rock.w/3, rock.h/4, 0, Math.PI, 0);
+    ctx.fill();
+  }
+
+  // Sandy floor
+  let sandGrd = ctx.createLinearGradient(0, floorY - 10, 0, H);
+  sandGrd.addColorStop(0, COLORS.sand);
+  sandGrd.addColorStop(0.3, '#a08050');
+  sandGrd.addColorStop(1, '#6b5530');
+  ctx.fillStyle = sandGrd;
+  ctx.beginPath();
+  ctx.moveTo(0, floorY);
+  for (let x = 0; x <= W; x += 20) {
+    ctx.lineTo(x, floorY + Math.sin(x * 0.05 + 1.3) * 6);
+  }
+  ctx.lineTo(W, H);
+  ctx.lineTo(0, H);
+  ctx.closePath();
+  ctx.fill();
+
+  // Sand texture dots
+  ctx.fillStyle = 'rgba(0,0,0,0.05)';
+  for (let i = 0; i < 40; i++) {
+    let sx = (i * 97 + 13) % W;
+    let sy = floorY + 10 + (i * 31) % 50;
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1 + (i % 3), 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Kelp
+  for (let k of uwKelp) {
+    ctx.strokeStyle = k.color;
+    ctx.lineWidth = 5;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    let baseY = floorY;
+    ctx.moveTo(k.x, baseY);
+    let segH = k.height / k.segments;
+    for (let s = 1; s <= k.segments; s++) {
+      let sway = Math.sin(waveTime * 1.5 + k.phase + s * 0.5) * (8 + s * 3);
+      ctx.quadraticCurveTo(
+        k.x + sway * 0.5, baseY - segH * (s - 0.5),
+        k.x + sway, baseY - segH * s
+      );
+    }
+    ctx.stroke();
+
+    // Kelp leaves
+    for (let s = 1; s < k.segments; s++) {
+      let leafY = baseY - segH * s;
+      let sway = Math.sin(waveTime * 1.5 + k.phase + s * 0.5) * (8 + s * 3);
+      let leafX = k.x + sway;
+      ctx.fillStyle = k.color;
+      ctx.beginPath();
+      ctx.ellipse(leafX + 8, leafY, 8, 3, 0.3 + Math.sin(waveTime + s) * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Fish
+  for (let f of uwFish) {
+    f.x += f.vx;
+    if (f.x < -20) f.x = W + 20;
+    if (f.x > W + 20) f.x = -20;
+
+    let fy = f.y + Math.sin(waveTime * 2 + f.x * 0.01) * 5;
+
+    ctx.save();
+    ctx.translate(f.x, fy);
+    if (f.vx < 0) ctx.scale(-1, 1);
+
+    ctx.fillStyle = f.color;
+    // Body
+    ctx.beginPath();
+    ctx.ellipse(0, 0, f.size, f.size * 0.4, 0, 0, Math.PI * 2);
+    ctx.fill();
+    // Tail
+    ctx.beginPath();
+    ctx.moveTo(-f.size, 0);
+    ctx.lineTo(-f.size - f.size * 0.6, -f.size * 0.4);
+    ctx.lineTo(-f.size - f.size * 0.6, f.size * 0.4);
+    ctx.closePath();
+    ctx.fill();
+    // Eye
+    ctx.fillStyle = '#000';
+    ctx.beginPath();
+    ctx.arc(f.size * 0.4, -f.size * 0.1, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.restore();
+  }
+
+  // Trap on floor
+  if (state.uwTrap) {
+    let trapX = W / 2;
+    let trapY = floorY - 20;
+
+    if (state.uwHauling) {
+      state.uwAnimY += dt * 100;
+      trapY = Math.max(100, floorY - 20 - state.uwAnimY);
+      if (trapY <= 100) {
+        state.uwHauling = false;
+        openCatchPanel();
+      }
+    }
+
+    // Trap rope
+    ctx.strokeStyle = '#8B7355';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(trapX, 0);
+    ctx.lineTo(trapX, trapY - 10);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Trap cage
+    ctx.strokeStyle = '#5a5a3a';
+    ctx.lineWidth = 2;
+    ctx.fillStyle = 'rgba(90, 90, 58, 0.3)';
+    ctx.fillRect(trapX - 30, trapY - 15, 60, 30);
+    ctx.strokeRect(trapX - 30, trapY - 15, 60, 30);
+    // Mesh lines
+    ctx.strokeStyle = 'rgba(90, 90, 58, 0.5)';
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath();
+      ctx.moveTo(trapX - 30 + i * 15, trapY - 15);
+      ctx.lineTo(trapX - 30 + i * 15, trapY + 15);
+      ctx.stroke();
+    }
+    ctx.beginPath();
+    ctx.moveTo(trapX - 30, trapY);
+    ctx.lineTo(trapX + 30, trapY);
+    ctx.stroke();
+
+    // Entrance funnel
+    ctx.strokeStyle = '#5a5a3a';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(trapX - 30, trapY - 8);
+    ctx.lineTo(trapX - 18, trapY);
+    ctx.lineTo(trapX - 30, trapY + 8);
+    ctx.stroke();
+
+    // Lobsters near trap (if not hauling and has contents)
+    if (!state.uwHauling && state.uwTrap.contents.length > 0) {
+      for (let i = 0; i < Math.min(3, state.uwTrap.contents.length); i++) {
+        drawLobster(trapX - 50 + i * 30 + Math.sin(waveTime + i) * 5, trapY + 5 + Math.sin(waveTime * 1.5 + i * 2) * 3, 1);
+      }
+    }
+
+    // Crawling lobsters on floor (ambient)
+    for (let i = 0; i < 3; i++) {
+      let lx = W * 0.15 + i * W * 0.3 + Math.sin(waveTime * 0.3 + i * 3) * 30;
+      let ly = floorY - 5 + Math.sin(waveTime + i * 2) * 2;
+      drawLobster(lx, ly, 0.8);
+    }
+  }
+
+  // Bubbles
+  ctx.fillStyle = 'rgba(150, 220, 255, 0.3)';
+  if (Math.random() < 0.1) {
+    uwBubbles.push({ x: Math.random() * W, y: H, size: 1 + Math.random() * 4, speed: 0.5 + Math.random() });
+  }
+  for (let i = uwBubbles.length - 1; i >= 0; i--) {
+    let b = uwBubbles[i];
+    b.y -= b.speed;
+    b.x += Math.sin(waveTime * 2 + b.y * 0.05) * 0.5;
+    if (b.y < -10) { uwBubbles.splice(i, 1); continue; }
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(200, 240, 255, 0.2)';
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  }
+
+  // Floating particles (detritus)
+  ctx.fillStyle = 'rgba(200, 180, 140, 0.15)';
+  for (let i = 0; i < 20; i++) {
+    let px = (waveTime * 10 + i * 137) % (W + 40) - 20;
+    let py = (i * 89 + Math.sin(waveTime * 0.5 + i) * 30) % H;
+    ctx.beginPath();
+    ctx.arc(px, py, 1.5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // UI hint
+  if (!state.uwHauling && !state.catchOpen) {
+    ctx.fillStyle = 'rgba(232,213,163,0.6)';
+    ctx.font = '14px Georgia';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press SPACE or tap to haul trap • ESC to go back', W/2, H - 30);
+  }
+}
+
+function drawLobster(x, y, scale) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+
+  // Body
+  ctx.fillStyle = COLORS.lobster;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 14, 6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Tail segments
+  for (let i = 1; i <= 4; i++) {
+    ctx.fillStyle = i % 2 === 0 ? COLORS.lobster : COLORS.lobsterDark;
+    ctx.beginPath();
+    ctx.ellipse(-14 - i * 5, 0, 4, 4 - i * 0.5, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // Tail fan
+  ctx.fillStyle = COLORS.lobsterDark;
+  ctx.beginPath();
+  ctx.moveTo(-35, 0);
+  ctx.lineTo(-42, -6);
+  ctx.lineTo(-40, 0);
+  ctx.lineTo(-42, 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // Claws
+  let clawWave = Math.sin(waveTime * 2) * 0.2;
+  ctx.save();
+  ctx.translate(14, -3);
+  ctx.rotate(-0.4 + clawWave);
+  ctx.fillStyle = COLORS.lobster;
+  ctx.beginPath();
+  ctx.ellipse(8, 0, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(14, -2);
+  ctx.lineTo(20, -4);
+  ctx.lineTo(20, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(14, 2);
+  ctx.lineTo(20, 4);
+  ctx.lineTo(20, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  ctx.save();
+  ctx.translate(14, 3);
+  ctx.rotate(0.4 - clawWave);
+  ctx.fillStyle = COLORS.lobster;
+  ctx.beginPath();
+  ctx.ellipse(8, 0, 8, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(14, -2);
+  ctx.lineTo(20, -4);
+  ctx.lineTo(20, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(14, 2);
+  ctx.lineTo(20, 4);
+  ctx.lineTo(20, 0);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+
+  // Legs
+  ctx.strokeStyle = COLORS.lobsterDark;
+  ctx.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    let lx = -4 + i * 6;
+    ctx.beginPath();
+    ctx.moveTo(lx, 5);
+    ctx.lineTo(lx + 3, 10);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lx, -5);
+    ctx.lineTo(lx + 3, -10);
+    ctx.stroke();
+  }
+
+  // Eyes
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(12, -5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(12, 5, 1.5, 0, Math.PI * 2);
+  ctx.fill();
+  // Antennae
+  ctx.strokeStyle = COLORS.lobsterDark;
+  ctx.lineWidth = 0.8;
+  ctx.beginPath();
+  ctx.moveTo(13, -5);
+  ctx.quadraticCurveTo(25, -15 + Math.sin(waveTime * 3) * 3, 35, -12);
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(13, 5);
+  ctx.quadraticCurveTo(25, 15 + Math.sin(waveTime * 3 + 1) * 3, 35, 12);
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+// ============= WEATHER =============
+let raindrops = [];
+
+function drawWeather(dt) {
+  if (state.weather === 'rainy') {
+    ctx.strokeStyle = 'rgba(150, 180, 220, 0.3)';
+    ctx.lineWidth = 1;
+    if (raindrops.length < 100) {
+      for (let i = 0; i < 5; i++) {
+        raindrops.push({ x: Math.random() * W, y: Math.random() * H, speed: 8 + Math.random() * 4 });
+      }
+    }
+    for (let i = raindrops.length - 1; i >= 0; i--) {
+      let r = raindrops[i];
+      r.y += r.speed;
+      r.x -= 2;
+      if (r.y > H) { r.y = -10; r.x = Math.random() * W; }
+      ctx.beginPath();
+      ctx.moveTo(r.x, r.y);
+      ctx.lineTo(r.x + 2, r.y + 10);
+      ctx.stroke();
+    }
+  }
+  if (state.weather === 'cloudy' || state.weather === 'rainy') {
+    ctx.fillStyle = 'rgba(40, 50, 60, 0.15)';
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// ============= PARTICLES =============
+function updateParticles(dt, cx, cy) {
+  for (let i = particles.length - 1; i >= 0; i--) {
+    let p = particles[i];
+    p.life -= dt;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy *= 0.98;
+    if (p.life <= 0) { particles.splice(i, 1); continue; }
+    let px = p.x - cx, py = p.y - cy;
+    ctx.fillStyle = `rgba(255,255,255,${p.life * 0.5})`;
+    ctx.beginPath();
+    ctx.arc(px, py, p.size * p.life, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+
+// ============= GAME LOGIC =============
+function getDaylight() {
+  let h = state.timeOfDay;
+  if (h >= 6 && h <= 8) return (h - 6) / 2; // sunrise
+  if (h >= 8 && h <= 18) return 1; // day
+  if (h >= 18 && h <= 20) return 1 - (h - 18) / 2; // sunset
+  return 0; // night
+}
+
+function getTrapFillTime() {
+  // hours for trap to fill
+  let base = 3;
+  if (state.baitLevel >= 2) base -= 0.5;
+  if (state.trapLevel >= 2) base -= 0.5;
+  if (state.weather === 'clear') base -= 0.3;
+  if (getDaylight() < 0.5) base -= 0.5; // lobsters more active at night
+  return Math.max(1, base);
+}
+
+function getBoatSpeed() {
+  return 2 + state.boatLevel * 0.8;
+}
+
+function isOnDock() {
+  let tx = Math.floor(state.boat.x / TILE);
+  let ty = Math.floor(state.boat.y / TILE);
+  return tx >= DOCK_X && tx < DOCK_X + DOCK_W && ty >= DOCK_Y && ty < DOCK_Y + DOCK_H;
+}
+
+function getTileAt(wx, wy) {
+  let tx = Math.floor(wx / TILE);
+  let ty = Math.floor(wy / TILE);
+  if (tx < 0 || tx >= MAP_W || ty < 0 || ty >= MAP_H) return 0;
+  return mapData[ty][tx];
+}
+
+function generateTrapContents() {
+  let trap = state.uwTrap;
+  if (!trap || trap.contents.length > 0) return;
+
+  let elapsed = state.timeOfDay - trap.timeSet + (state.day - trap.daySet) * 24;
+  let readiness = Math.min(1, elapsed / getTrapFillTime());
+  if (readiness < 0.3) return;
+
+  let tile = getTileAt(trap.x, trap.y);
+  let rockyBonus = tile === 3 ? 1.5 : 1;
+  let count = Math.floor(readiness * 4 * rockyBonus * (0.5 + Math.random()));
+
+  let contents = [];
+  for (let i = 0; i < count; i++) {
+    let roll = Math.random();
+    if (roll < 0.15) {
+      // Crab
+      contents.push({ type: 'crab', size: 0, legal: false, label: '🦀 Crab' });
+    } else if (roll < 0.3) {
+      // Undersized lobster
+      let size = 2.5 + Math.random() * 0.7; // under 3.25"
+      contents.push({ type: 'lobster', size, legal: false, label: `🦞 Lobster (${size.toFixed(2)}" - TOO SMALL)`, reason: 'undersized' });
+    } else if (roll < 0.38) {
+      // Egg-bearing female
+      let size = 3.25 + Math.random() * 1.5;
+      contents.push({ type: 'lobster', size, legal: false, label: `🦞 Egg-bearing Female (${size.toFixed(2)}")`, reason: 'egg-bearing' });
+    } else if (roll < 0.42) {
+      // V-notched
+      let size = 3.25 + Math.random() * 1.5;
+      contents.push({ type: 'lobster', size, legal: false, label: `🦞 V-notched Female (${size.toFixed(2)}")`, reason: 'v-notch' });
+    } else {
+      // Legal lobster!
+      let size = 3.25 + Math.random() * 2;
+      contents.push({ type: 'lobster', size, legal: true, label: `🦞 Legal Lobster (${size.toFixed(2)}")` });
+    }
+  }
+
+  if (count === 0) {
+    contents.push({ type: 'empty', label: '🪹 Empty trap', legal: false });
+  }
+
+  trap.contents = contents;
+}
+
+function dropTrap() {
+  if (state.trapSupply <= 0) { notify("No traps! Buy more at the dock."); return; }
+  if (state.bait <= 0) { notify("No bait! Buy more at the dock."); return; }
+  if (state.traps.length >= state.maxTraps) { notify(`Max ${state.maxTraps} traps!`); return; }
+
+  let tile = getTileAt(state.boat.x, state.boat.y);
+  if (tile === 4) { notify("Can't set traps on the dock!"); return; }
+
+  // Check if too close to another trap
+  for (let t of state.traps) {
+    if (Math.hypot(t.x - state.boat.x, t.y - state.boat.y) < 50) {
+      notify("Too close to another trap!"); return;
+    }
+  }
+
+  state.trapSupply--;
+  state.bait--;
+  state.traps.push({
+    x: state.boat.x,
+    y: state.boat.y,
+    timeSet: state.timeOfDay,
+    daySet: state.day,
+    contents: [],
+  });
+
+  // Splash particles
+  for (let i = 0; i < 10; i++) {
+    addParticle(state.boat.x, state.boat.y, 'splash');
+  }
+
+  notify(`Trap set! (${state.traps.length}/${state.maxTraps})`);
+  updateHUD();
+}
+
+function checkNearbyTrap() {
+  for (let trap of state.traps) {
+    let dist = Math.hypot(trap.x - state.boat.x, trap.y - state.boat.y);
+    if (dist < 60) {
+      return trap;
+    }
+  }
+  return null;
+}
+
+function enterUnderwater(trap) {
+  state.mode = 'underwater';
+  state.uwTrap = trap;
+  state.uwAnimY = 0;
+  state.uwHauling = false;
+  if (!uwInitialized) initUnderwater();
+  generateTrapContents();
+  updateHints();
+}
+
+function exitUnderwater() {
+  state.mode = 'topdown';
+  state.uwTrap = null;
+  state.uwHauling = false;
+  state.catchOpen = false;
+  document.getElementById('catch-panel').style.display = 'none';
+  updateHints();
+}
+
+function haulTrap() {
+  if (!state.uwTrap || state.uwHauling) return;
+  state.uwHauling = true;
+  state.uwAnimY = 0;
+}
+
+function openCatchPanel() {
+  if (!state.uwTrap) return;
+  state.catchOpen = true;
+  let panel = document.getElementById('catch-panel');
+  let itemsDiv = document.getElementById('catch-items');
+  itemsDiv.innerHTML = '';
+
+  for (let i = 0; i < state.uwTrap.contents.length; i++) {
+    let item = state.uwTrap.contents[i];
+    let div = document.createElement('div');
+    div.className = 'catch-item';
+
+    let label = document.createElement('span');
+    label.textContent = item.label;
+    label.style.fontSize = '13px';
+    div.appendChild(label);
+
+    let actions = document.createElement('span');
+    if (item.type === 'lobster' && item.legal) {
+      let keepBtn = document.createElement('button');
+      keepBtn.className = 'catch-action keep';
+      keepBtn.textContent = '✓ Keep';
+      keepBtn.onclick = () => keepLobster(i, div);
+      actions.appendChild(keepBtn);
+    } else if (item.type === 'lobster' && !item.legal) {
+      let tossBtn = document.createElement('button');
+      tossBtn.className = 'catch-action toss';
+      tossBtn.textContent = '↩ Toss Back';
+      tossBtn.onclick = () => { div.style.opacity = '0.3'; tossBtn.disabled = true; };
+      actions.appendChild(tossBtn);
+      if (item.reason) {
+        let reason = document.createElement('span');
+        reason.style.fontSize = '10px';
+        reason.style.color = '#a55';
+        reason.style.marginLeft = '6px';
+        reason.textContent = `(${item.reason})`;
+        actions.appendChild(reason);
+      }
+    } else if (item.type === 'crab') {
+      let tossBtn = document.createElement('button');
+      tossBtn.className = 'catch-action toss';
+      tossBtn.textContent = '↩ Toss';
+      tossBtn.onclick = () => { div.style.opacity = '0.3'; tossBtn.disabled = true; };
+      actions.appendChild(tossBtn);
+    }
+    div.appendChild(actions);
+    itemsDiv.appendChild(div);
+  }
+
+  panel.style.display = 'block';
+}
+
+function keepLobster(index, div) {
+  let item = state.uwTrap.contents[index];
+  if (state.hold.length >= getHoldCapacity()) {
+    notify("Hold is full! Sell at dock first.");
+    return;
+  }
+  state.hold.push({ size: item.size, type: 'lobster' });
+  div.style.opacity = '0.3';
+  div.querySelector('.catch-action').disabled = true;
+  div.querySelector('.catch-action').textContent = '✓ Kept';
+  updateHUD();
+}
+
+function closeCatch() {
+  state.catchOpen = false;
+  document.getElementById('catch-panel').style.display = 'none';
+  // Remove trap
+  let idx = state.traps.indexOf(state.uwTrap);
+  if (idx >= 0) state.traps.splice(idx, 1);
+  // Return trap to supply
+  state.trapSupply++;
+  exitUnderwater();
+}
+
+function getHoldCapacity() {
+  return 20 + (state.holdLevel - 1) * 10;
+}
+
+function getLobsterPrice(size) {
+  // Price per lobster based on size
+  if (size < 3.5) return 8;
+  if (size < 4) return 12;
+  if (size < 4.5) return 16;
+  return 22;
+}
+
+function sellCatch() {
+  if (state.hold.length === 0) { notify("Nothing to sell!"); return; }
+  let total = 0;
+  for (let item of state.hold) {
+    total += getLobsterPrice(item.size);
+  }
+  let count = state.hold.length;
+  state.cash += total;
+  state.hold = [];
+  notify(`Sold ${count} lobster${count > 1 ? 's' : ''} for $${total}!`);
+  updateHUD();
+  updateShop();
+}
+
+// ============= SHOP =============
+function openShop() {
+  state.shopOpen = true;
+  document.getElementById('shop-panel').style.display = 'block';
+  updateShop();
+}
+
+function closeShop() {
+  state.shopOpen = false;
+  document.getElementById('shop-panel').style.display = 'none';
+}
+
+function updateShop() {
+  let items = document.getElementById('shop-items');
+  let baitPrice = 5 - (state.baitLevel > 1 ? 1 : 0);
+  let trapPrice = 25;
+  items.innerHTML = `
+    <div class="shop-item">
+      <span>🐟 Bait (${state.bait}) — $${baitPrice} ea</span>
+      <span>
+        <button class="shop-btn" onclick="buyBait(1)">Buy 1</button>
+        <button class="shop-btn" onclick="buyBait(10)" style="margin-left:4px">Buy 10</button>
+      </span>
+    </div>
+    <div class="shop-item">
+      <span>🪤 Traps (${state.trapSupply}) — $${trapPrice} ea</span>
+      <span>
+        <button class="shop-btn" onclick="buyTrap(1)">Buy 1</button>
+        <button class="shop-btn" onclick="buyTrap(5)" style="margin-left:4px">Buy 5</button>
+      </span>
+    </div>
+  `;
+  document.getElementById('sell-btn').textContent = state.hold.length > 0
+    ? `💰 Sell ${state.hold.length} lobster${state.hold.length > 1 ? 's' : ''}`
+    : '💰 Nothing to sell';
+}
+
+function buyBait(n) {
+  let price = (5 - (state.baitLevel > 1 ? 1 : 0)) * n;
+  if (state.cash < price) { notify("Not enough cash!"); return; }
+  state.cash -= price;
+  state.bait += n;
+  updateHUD(); updateShop();
+}
+
+function buyTrap(n) {
+  let price = 25 * n;
+  if (state.cash < price) { notify("Not enough cash!"); return; }
+  state.cash -= price;
+  state.trapSupply += n;
+  updateHUD(); updateShop();
+}
+
+// ============= UPGRADES =============
+function openUpgrades() {
+  state.upgradeOpen = true;
+  document.getElementById('shop-panel').style.display = 'none';
+  document.getElementById('upgrade-panel').style.display = 'block';
+  updateUpgradePanel();
+}
+
+function closeUpgrades() {
+  state.upgradeOpen = false;
+  document.getElementById('upgrade-panel').style.display = 'none';
+  document.getElementById('shop-panel').style.display = 'block';
+}
+
+const UPGRADES = [
+  { key: 'boatLevel', name: '⛵ Boat Speed', maxLevel: 5, basePrice: 200, desc: l => `Level ${l} → ${l+1} (faster)` },
+  { key: 'trapLevel', name: '🪤 Trap Quality', maxLevel: 4, basePrice: 150, desc: l => `Level ${l} → ${l+1} (fill faster)` },
+  { key: 'baitLevel', name: '🐟 Bait Quality', maxLevel: 3, basePrice: 100, desc: l => `Level ${l} → ${l+1} (cheaper + better)` },
+  { key: 'holdLevel', name: '📦 Hold Size', maxLevel: 5, basePrice: 180, desc: l => `Level ${l} → ${l+1} (${20 + l*10} capacity)` },
+  { key: 'maxTraps', name: '🔢 Max Traps', maxLevel: 30, basePrice: 50, desc: l => `${l} → ${l+5} traps`, step: 5 },
+];
+
+function updateUpgradePanel() {
+  let items = document.getElementById('upgrade-items');
+  items.innerHTML = '';
+  for (let u of UPGRADES) {
+    let level = state[u.key];
+    let maxed = u.key === 'maxTraps' ? level >= u.maxLevel : level >= u.maxLevel;
+    let price = u.basePrice * (u.key === 'maxTraps' ? Math.ceil(level/5) : level);
+    let div = document.createElement('div');
+    div.className = 'upgrade-item';
+    div.innerHTML = `
+      <div>
+        <div style="font-size:14px">${u.name}</div>
+        <div style="font-size:11px;opacity:0.6">${maxed ? 'MAX' : u.desc(level)} — $${price}</div>
+      </div>
+    `;
+    if (!maxed) {
+      let btn = document.createElement('button');
+      btn.className = 'upgrade-btn';
+      btn.textContent = `$${price}`;
+      btn.disabled = state.cash < price;
+      btn.onclick = () => {
+        if (state.cash >= price) {
+          state.cash -= price;
+          if (u.key === 'maxTraps') state[u.key] += (u.step || 5);
+          else state[u.key]++;
+          updateHUD();
+          updateUpgradePanel();
+          notify(`${u.name} upgraded!`);
+        }
+      };
+      div.appendChild(btn);
+    }
+    items.appendChild(div);
+  }
+}
+
+// ============= UI =============
+function updateHUD() {
+  document.getElementById('hud-cash').textContent = `$${state.cash}`;
+  let h = Math.floor(state.timeOfDay);
+  let m = Math.floor((state.timeOfDay % 1) * 60);
+  let ampm = h >= 12 ? 'PM' : 'AM';
+  let h12 = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+  document.getElementById('hud-time').textContent = `${h12}:${m.toString().padStart(2,'0')} ${ampm}`;
+  document.getElementById('hud-time-label').textContent = `Day ${state.day}`;
+  document.getElementById('hud-weather').textContent = state.weather.charAt(0).toUpperCase() + state.weather.slice(1) +
+    (state.weather === 'foggy' ? ' 🌫️' : state.weather === 'rainy' ? ' 🌧️' : state.weather === 'cloudy' ? ' ☁️' : ' ☀️');
+  document.getElementById('hud-hold').textContent = `${state.hold.length} / ${getHoldCapacity()}`;
+  document.getElementById('hud-traps-info').textContent = `Traps: ${state.traps.length} set | ${state.trapSupply} avail | Bait: ${state.bait}`;
+}
+
+function updateHints() {
+  let hint = document.getElementById('controls-hint');
+  if (state.mode === 'topdown') {
+    hint.textContent = 'WASD/Arrows: Move • SPACE: Drop trap / Enter shop / Haul trap • E: Shop (at dock)';
+  } else {
+    hint.textContent = '';
+  }
+}
+
+let notifyTimer = null;
+function notify(msg) {
+  let el = document.getElementById('notification');
+  el.textContent = msg;
+  el.style.display = 'block';
+  el.style.opacity = '1';
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(() => {
+    el.style.opacity = '0';
+    setTimeout(() => el.style.display = 'none', 300);
+  }, 2500);
+}
+
+function toggleTimeSpeed() {
+  state.timeSpeed = state.timeSpeed === 1 ? 8 : 1;
+  document.getElementById('time-btn').textContent = state.timeSpeed > 1 ? '⏩ Normal Speed' : '⏩ Speed Up';
+}
+
+// ============= INPUT =============
+document.addEventListener('keydown', e => {
+  state.keys[e.key.toLowerCase()] = true;
+  if (e.key === ' ' || e.key === 'Space') {
+    e.preventDefault();
+    handleAction();
+  }
+  if (e.key === 'e' || e.key === 'E') {
+    if (isOnDock() && state.mode === 'topdown') {
+      if (state.shopOpen) closeShop();
+      else openShop();
+    }
+  }
+  if (e.key === 'Escape') {
+    if (state.catchOpen) closeCatch();
+    else if (state.upgradeOpen) closeUpgrades();
+    else if (state.shopOpen) closeShop();
+    else if (state.mode === 'underwater') exitUnderwater();
+  }
+});
+document.addEventListener('keyup', e => { state.keys[e.key.toLowerCase()] = false; });
+
+// Touch
+let touchStart = null;
+C.addEventListener('touchstart', e => {
+  e.preventDefault();
+  let t = e.touches[0];
+  touchStart = { x: t.clientX, y: t.clientY, time: Date.now() };
+  state.touch = { x: t.clientX, y: t.clientY };
+});
+C.addEventListener('touchmove', e => {
+  e.preventDefault();
+  let t = e.touches[0];
+  state.touch = { x: t.clientX, y: t.clientY };
+});
+C.addEventListener('touchend', e => {
+  e.preventDefault();
+  if (touchStart && Date.now() - touchStart.time < 300) {
+    handleAction();
+  }
+  state.touch = null;
+  touchStart = null;
+});
+
+// Click
+C.addEventListener('click', e => {
+  if (state.mode === 'topdown') {
+    // Click to set waypoint? For now, just action
+    handleAction();
+  }
+});
+
+function handleAction() {
+  if (state.mode === 'underwater') {
+    haulTrap();
+    return;
+  }
+  if (state.shopOpen || state.upgradeOpen) return;
+
+  if (isOnDock()) {
+    openShop();
+    return;
+  }
+
+  // Check nearby trap
+  let nearTrap = checkNearbyTrap();
+  if (nearTrap) {
+    enterUnderwater(nearTrap);
+    return;
+  }
+
+  // Drop trap
+  dropTrap();
+}
+
+// ============= UPDATE =============
+function update(dt) {
+  if (state.mode === 'topdown') {
+    // Time passes
+    state.timeOfDay += dt * 0.02 * state.timeSpeed; // ~1 game hour per 50 real seconds at 1x
+    if (state.timeOfDay >= 24) {
+      state.timeOfDay -= 24;
+      state.day++;
+    }
+
+    // Weather changes
+    state.weatherTimer -= dt * state.timeSpeed;
+    if (state.weatherTimer <= 0) {
+      let weathers = ['clear', 'clear', 'clear', 'cloudy', 'cloudy', 'foggy', 'rainy'];
+      state.weather = weathers[Math.floor(Math.random() * weathers.length)];
+      state.weatherTimer = 300 + Math.random() * 600;
+    }
+
+    // Boat movement
+    let speed = getBoatSpeed();
+    let moving = false;
+
+    if (state.touch) {
+      // Touch: move toward touch point
+      let dx = state.touch.x - W / 2;
+      let dy = state.touch.y - H / 2;
+      let dist = Math.hypot(dx, dy);
+      if (dist > 20) {
+        state.boat.angle = Math.atan2(dy, dx);
+        state.boat.speed = Math.min(speed, dist * 0.05);
+        moving = true;
+      }
+    } else {
+      let dx = 0, dy = 0;
+      if (state.keys['w'] || state.keys['arrowup']) dy = -1;
+      if (state.keys['s'] || state.keys['arrowdown']) dy = 1;
+      if (state.keys['a'] || state.keys['arrowleft']) dx = -1;
+      if (state.keys['d'] || state.keys['arrowright']) dx = 1;
+      if (dx || dy) {
+        let targetAngle = Math.atan2(dy, dx);
+        // Smooth rotation
+        let diff = targetAngle - state.boat.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        state.boat.angle += diff * 0.1;
+        state.boat.speed = speed;
+        moving = true;
+      }
+    }
+
+    if (!moving) {
+      state.boat.speed *= 0.92;
+    }
+
+    let newX = state.boat.x + Math.cos(state.boat.angle) * state.boat.speed;
+    let newY = state.boat.y + Math.sin(state.boat.angle) * state.boat.speed;
+
+    // Bounds
+    newX = Math.max(20, Math.min(MAP_W * TILE - 20, newX));
+    newY = Math.max(20, Math.min(MAP_H * TILE - 20, newY));
+
+    state.boat.x = newX;
+    state.boat.y = newY;
+
+    // Wake particles
+    if (state.boat.speed > 1) {
+      if (Math.random() < 0.3) {
+        addParticle(
+          state.boat.x - Math.cos(state.boat.angle) * 15,
+          state.boat.y - Math.sin(state.boat.angle) * 15,
+          'wake'
+        );
+      }
+    }
+
+    updateHUD();
+  }
+}
+
+// ============= SAVE/LOAD =============
+function saveGame() {
+  let save = {
+    cash: state.cash, day: state.day, timeOfDay: state.timeOfDay,
+    weather: state.weather, boat: state.boat, traps: state.traps,
+    hold: state.hold, bait: state.bait, trapSupply: state.trapSupply,
+    maxTraps: state.maxTraps, boatLevel: state.boatLevel, trapLevel: state.trapLevel,
+    baitLevel: state.baitLevel, holdLevel: state.holdLevel,
+  };
+  localStorage.setItem('lobster-grounds-save', JSON.stringify(save));
+}
+
+function loadGame() {
+  let data = localStorage.getItem('lobster-grounds-save');
+  if (!data) return false;
+  try {
+    let save = JSON.parse(data);
+    Object.assign(state, save);
+    return true;
+  } catch { return false; }
+}
+
+// ============= MAIN LOOP =============
+let lastTime = 0;
+let started = false;
+
+function gameLoop(timestamp) {
+  if (!started) { requestAnimationFrame(gameLoop); return; }
+  let dt = Math.min(0.05, (timestamp - lastTime) / 1000);
+  lastTime = timestamp;
+
+  ctx.clearRect(0, 0, W, H);
+
+  update(dt);
+
+  if (state.mode === 'topdown') {
+    drawTopDown(dt);
+  } else {
+    drawUnderwater(dt);
+  }
+
+  // Auto-save every 30s
+  if (Math.floor(timestamp / 30000) !== Math.floor((timestamp - 16) / 30000)) {
+    saveGame();
+  }
+
+  requestAnimationFrame(gameLoop);
+}
+
+// ============= START =============
+function startGame(continuing) {
+  generateMap();
+  if (continuing) loadGame();
+  initNPCBoats();
+  started = true;
+  document.getElementById('start-screen').style.display = 'none';
+  updateHUD();
+  updateHints();
+  lastTime = performance.now();
+}
+
+// Check for save
+if (localStorage.getItem('lobster-grounds-save')) {
+  document.getElementById('continue-btn').style.display = 'block';
+}
+
+document.getElementById('start-btn').addEventListener('click', () => startGame(false));
+document.getElementById('continue-btn').addEventListener('click', () => startGame(true));
+
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
