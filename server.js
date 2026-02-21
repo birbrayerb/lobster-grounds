@@ -95,6 +95,26 @@ function handleMessage(playerId, msg) {
   if (!player) return;
   
   switch (msg.type) {
+    case 'identify':
+      // Restore player name/color from previous session
+      if (msg.name) player.name = msg.name;
+      if (msg.color) player.color = msg.color;
+      // Re-adopt orphaned traps from previous session with same name
+      for (const [tid, trap] of traps) {
+        if (trap.ownerName === player.name && trap.orphanedAt) {
+          trap.ownerId = player.id;
+          trap.orphanedAt = null;
+        }
+      }
+      // Send updated welcome
+      player.ws.send(JSON.stringify({
+        type: 'welcome',
+        id: player.id, name: player.name, color: player.color,
+        gameTime: { ...gameTime },
+      }));
+      console.log(`Player ${player.id} identified as ${player.name}`);
+      break;
+
     case 'position':
       player.x = msg.x;
       player.y = msg.y;

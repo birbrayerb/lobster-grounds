@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no">
 <title>Lobster Grounds</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -283,6 +283,12 @@ function connectMultiplayer() {
     statusEl.textContent = '✓ Connected';
     statusEl.className = 'connected';
     setTimeout(() => { if (mp.connected) statusEl.style.display = 'none'; }, 2000);
+    // Send stored identity so server can restore our name
+    const storedName = localStorage.getItem('lobster-player-name');
+    const storedColor = localStorage.getItem('lobster-player-color');
+    if (storedName) {
+      mp.ws.send(JSON.stringify({ type: 'identify', name: storedName, color: storedColor }));
+    }
   };
   
   mp.ws.onclose = () => {
@@ -308,6 +314,10 @@ function handleServerMessage(msg) {
     mp.myId = msg.id;
     mp.myName = msg.name;
     mp.myColor = msg.color;
+    // Persist identity for reconnects
+    localStorage.setItem('lobster-player-name', msg.name);
+    localStorage.setItem('lobster-player-color', msg.color);
+    localStorage.setItem('lobster-player-id', msg.id);
     // Apply server game time
     if (msg.gameTime) {
       state.day = msg.gameTime.day;
@@ -2111,6 +2121,15 @@ function startGame(continuing) {
 if (localStorage.getItem('lobster-grounds-save')) {
   document.getElementById('continue-btn').style.display = 'block';
 }
+
+// Prevent pinch-zoom on mobile
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('gesturechange', e => e.preventDefault());
+document.addEventListener('gestureend', e => e.preventDefault());
+document.addEventListener('touchmove', e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
+document.addEventListener('dblclick', e => e.preventDefault());
 
 document.getElementById('start-btn').addEventListener('click', () => startGame(false));
 document.getElementById('continue-btn').addEventListener('click', () => startGame(true));
