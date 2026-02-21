@@ -21,11 +21,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 .hud-panel {
   background: rgba(10, 22, 40, 0.85); border: 1px solid rgba(232,213,163,0.3);
   border-radius: 8px; padding: 8px 14px; backdrop-filter: blur(4px);
-  text-shadow: 0 1px 3px rgba(0,0,0,0.8);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.8); flex-shrink: 0;
 }
 .hud-panel .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
 .hud-panel .value { font-size: 18px; font-weight: bold; }
-.hud-panel .value#hud-cash { font-size: 22px; color: #5aff5a; }
+.hud-panel .value#hud-cash { font-size: 22px; color: #5aff5a; display: block !important; visibility: visible !important; }
 #shop-panel, #catch-panel, #upgrade-panel {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   background: rgba(10, 22, 40, 0.95); border: 2px solid rgba(232,213,163,0.4);
@@ -74,7 +74,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: #e8d5a3;
 }
-#start-screen h1 { font-size: 48px; margin-bottom: 8px; text-shadow: 0 2px 12px rgba(0,0,0,0.5); letter-spacing: 3px; }
+#start-screen h1 { font-size: 48px; margin-bottom: 8px; text-shadow: 0 2px 12px rgba(0,0,0,0.5); letter-spacing: 3px; text-align: center; width: 100%; }
 #start-screen .subtitle { font-size: 16px; opacity: 0.6; margin-bottom: 40px; letter-spacing: 2px; }
 #start-btn {
   background: rgba(232,213,163,0.15); border: 2px solid rgba(232,213,163,0.5);
@@ -519,7 +519,7 @@ function drawTopDown(dt) {
   state.camera.x += (targetCX - state.camera.x) * 0.08;
   state.camera.y += (targetCY - state.camera.y) * 0.08;
 
-  let cx = state.camera.x, cy = state.camera.y;
+  let cx = state.camera.x + screenShake.x, cy = state.camera.y + screenShake.y;
 
   // Visible tile range
   let sx = Math.floor(cx / TILE) - 1;
@@ -567,11 +567,16 @@ function drawTopDown(dt) {
         }
         blendDepth /= neighbors;
 
-        // Interpolate water color based on blended depth
-        let r = Math.round(13 + blendDepth * 13);
-        let g = Math.round(33 + blendDepth * 49);
-        let b = Math.round(55 + blendDepth * 63);
-        ctx.fillStyle = `rgb(${r},${g},${b})`;
+        // Interpolate water color with depth variation and time-of-day tint
+        let depthColor = Math.sin(waveTime * 0.3 + x * 0.05 + y * 0.03) * 0.08;
+        let r = Math.round(10 + blendDepth * 18 + depthColor * 8);
+        let g = Math.round(30 + blendDepth * 55 + depthColor * 12 + Math.sin(waveTime * 0.5 + y * 0.1) * 3);
+        let b = Math.round(50 + blendDepth * 70 + depthColor * 15);
+        // Deeper water gets a darker blue-green tint
+        if (blendDepth < 0.2) {
+          g += 5; b += 10;
+        }
+        ctx.fillStyle = `rgb(${Math.max(0,r)},${Math.max(0,g)},${Math.max(0,b)})`;
         ctx.fillRect(px, py, TILE, TILE);
 
         // Overlapping sine waves for animated water
@@ -593,6 +598,16 @@ function drawTopDown(dt) {
           let foamY = py + Math.cos(waveTime * 0.7 + y) * 4;
           ctx.beginPath();
           ctx.ellipse(foamX + TILE/2, foamY + TILE/2, TILE * 0.4, TILE * 0.15, waveTime * 0.3 + x, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Secondary foam - smaller scattered whitecaps
+        let foam2 = Math.sin(waveTime * 2.8 + x * 1.1 - y * 0.9) * Math.cos(waveTime * 1.9 + x * 0.6 + y * 1.3);
+        if (foam2 > 0.55 && blendDepth > 0.3) {
+          let f2Alpha = (foam2 - 0.55) * 0.35;
+          ctx.fillStyle = `rgba(240,250,255,${f2Alpha})`;
+          ctx.beginPath();
+          ctx.arc(px + TILE * 0.3 + Math.sin(waveTime * 1.5 + x) * 3, py + TILE * 0.6, 2 + foam2 * 3, 0, Math.PI * 2);
           ctx.fill();
         }
 
@@ -1974,6 +1989,72 @@ function handleAction() {
   dropTrap();
 }
 
+// ============= BOAT COLLISIONS =============
+let screenShake = { x: 0, y: 0, intensity: 0 };
+let boatBounceVel = { x: 0, y: 0 };
+
+function checkBoatCollisions() {
+  const COLLISION_DIST = 35;
+  const BOUNCE_FORCE = 3.5;
+  
+  for (let p of mp.players) {
+    let lerp = mp.otherPlayerPositions.get(p.id);
+    let ox = lerp ? lerp.x : p.x;
+    let oy = lerp ? lerp.y : p.y;
+    let dx = state.boat.x - ox;
+    let dy = state.boat.y - oy;
+    let dist = Math.hypot(dx, dy);
+    
+    if (dist < COLLISION_DIST && dist > 0) {
+      // Push apart
+      let nx = dx / dist;
+      let ny = dy / dist;
+      let overlap = COLLISION_DIST - dist;
+      
+      // Move our boat out
+      state.boat.x += nx * overlap * 0.6;
+      state.boat.y += ny * overlap * 0.6;
+      
+      // Add bounce velocity
+      boatBounceVel.x += nx * BOUNCE_FORCE;
+      boatBounceVel.y += ny * BOUNCE_FORCE;
+      
+      // Screen shake
+      screenShake.intensity = Math.max(screenShake.intensity, 4);
+      
+      // Splash particles at collision point
+      let cx = (state.boat.x + ox) / 2;
+      let cy = (state.boat.y + oy) / 2;
+      for (let i = 0; i < 8; i++) {
+        addParticle(cx, cy, 'splash');
+      }
+    }
+  }
+  
+  // Apply and decay bounce velocity
+  state.boat.x += boatBounceVel.x;
+  state.boat.y += boatBounceVel.y;
+  boatBounceVel.x *= 0.85;
+  boatBounceVel.y *= 0.85;
+  if (Math.abs(boatBounceVel.x) < 0.01) boatBounceVel.x = 0;
+  if (Math.abs(boatBounceVel.y) < 0.01) boatBounceVel.y = 0;
+  
+  // Decay screen shake
+  if (screenShake.intensity > 0) {
+    screenShake.x = (Math.random() - 0.5) * screenShake.intensity * 2;
+    screenShake.y = (Math.random() - 0.5) * screenShake.intensity * 2;
+    screenShake.intensity *= 0.88;
+    if (screenShake.intensity < 0.2) screenShake.intensity = 0;
+  } else {
+    screenShake.x = 0;
+    screenShake.y = 0;
+  }
+  
+  // Re-clamp bounds
+  state.boat.x = Math.max(20, Math.min(MAP_W * TILE - 20, state.boat.x));
+  state.boat.y = Math.max(20, Math.min(MAP_H * TILE - 20, state.boat.y));
+}
+
 // ============= UPDATE =============
 function update(dt) {
   if (state.mode === 'topdown') {
@@ -2041,6 +2122,9 @@ function update(dt) {
 
     state.boat.x = newX;
     state.boat.y = newY;
+
+    // Client-side boat collisions with other players
+    checkBoatCollisions();
 
     // Wake particles
     if (state.boat.speed > 1) {
