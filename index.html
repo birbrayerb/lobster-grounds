@@ -16,7 +16,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 #hud {
   position: absolute; top: 12px; left: 12px; right: 12px;
   display: flex; justify-content: space-between; align-items: flex-start;
-  font-size: 14px; color: #e8d5a3;
+  font-size: 14px; color: #e8d5a3; z-index: 20;
 }
 .hud-panel {
   background: rgba(10, 22, 40, 0.85); border: 1px solid rgba(232,213,163,0.3);
@@ -25,6 +25,7 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 }
 .hud-panel .label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; }
 .hud-panel .value { font-size: 18px; font-weight: bold; }
+.hud-panel .value#hud-cash { font-size: 22px; color: #5aff5a; }
 #shop-panel, #catch-panel, #upgrade-panel {
   position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
   background: rgba(10, 22, 40, 0.95); border: 2px solid rgba(232,213,163,0.4);
@@ -102,7 +103,8 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 </head>
 <body>
 <div id="start-screen">
-  <h1>🦞 LOBSTER GROUNDS</h1>
+  <div style="font-size:64px;line-height:1;margin-bottom:8px">🦞</div>
+  <h1>LOBSTER GROUNDS</h1>
   <div class="subtitle">A Lobster Fishing Simulation</div>
   <button id="start-btn">NEW GAME</button>
   <button id="continue-btn">CONTINUE</button>
@@ -315,24 +317,86 @@ function drawTopDown(dt) {
       if (tile === 4) {
         ctx.fillStyle = COLORS.dock;
         ctx.fillRect(px, py, TILE, TILE);
-        // Dock planks
         if ((x + y) % 2 === 0) {
           ctx.fillStyle = COLORS.dockLight;
           ctx.fillRect(px + 1, py + 1, TILE - 2, TILE - 2);
         }
       } else {
-        let baseColor;
-        if (tile === 0) baseColor = COLORS.deepWater;
-        else if (tile === 1) baseColor = COLORS.medWater;
-        else if (tile === 2) baseColor = COLORS.shallowWater;
-        else baseColor = COLORS.rocky;
+        // Depth blending - sample neighbors for smooth transitions
+        let depthVal = tile === 0 ? 0 : tile === 1 ? 0.4 : tile === 2 ? 0.75 : 0.2;
+        // Blend with neighbors
+        let blendDepth = depthVal;
+        let neighbors = 1;
+        for (let ny2 = -1; ny2 <= 1; ny2++) {
+          for (let nx2 = -1; nx2 <= 1; nx2++) {
+            if (nx2 === 0 && ny2 === 0) continue;
+            let tnx = x + nx2, tny = y + ny2;
+            if (tnx >= 0 && tnx < MAP_W && tny >= 0 && tny < MAP_H) {
+              let nt = mapData[tny][tnx];
+              if (nt !== 4) {
+                blendDepth += (nt === 0 ? 0 : nt === 1 ? 0.4 : nt === 2 ? 0.75 : 0.2);
+                neighbors++;
+              }
+            }
+          }
+        }
+        blendDepth /= neighbors;
 
-        ctx.fillStyle = baseColor;
+        // Interpolate water color based on blended depth
+        let r = Math.round(13 + blendDepth * 13);
+        let g = Math.round(33 + blendDepth * 49);
+        let b = Math.round(55 + blendDepth * 63);
+        ctx.fillStyle = `rgb(${r},${g},${b})`;
         ctx.fillRect(px, py, TILE, TILE);
 
-        // Wave highlight
-        ctx.fillStyle = `rgba(255,255,255,${0.02 + Math.max(0, shimmer) * 0.003})`;
+        // Overlapping sine waves for animated water
+        let wave1 = Math.sin(waveTime * 1.5 + x * 0.4 + y * 0.3) * 0.5 + 0.5;
+        let wave2 = Math.sin(waveTime * 2.2 + x * 0.7 - y * 0.5 + 1.7) * 0.5 + 0.5;
+        let wave3 = Math.sin(waveTime * 0.8 - x * 0.2 + y * 0.6 + 3.1) * 0.5 + 0.5;
+        let combinedWave = (wave1 * 0.4 + wave2 * 0.35 + wave3 * 0.25);
+
+        // Wave highlight with varying opacity
+        let waveAlpha = combinedWave * 0.06;
+        ctx.fillStyle = `rgba(140,200,255,${waveAlpha})`;
         ctx.fillRect(px, py, TILE, TILE);
+
+        // Foam/whitecap on wave crests
+        if (combinedWave > 0.72) {
+          let foamAlpha = (combinedWave - 0.72) * 0.5;
+          ctx.fillStyle = `rgba(220,240,255,${foamAlpha})`;
+          let foamX = px + Math.sin(waveTime + x) * 4;
+          let foamY = py + Math.cos(waveTime * 0.7 + y) * 4;
+          ctx.beginPath();
+          ctx.ellipse(foamX + TILE/2, foamY + TILE/2, TILE * 0.4, TILE * 0.15, waveTime * 0.3 + x, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Caustic light patterns (shimmering)
+        let caustic1 = Math.sin(waveTime * 3.1 + x * 1.3 + y * 0.9);
+        let caustic2 = Math.cos(waveTime * 2.7 - x * 0.8 + y * 1.4);
+        let causticVal = (caustic1 * caustic2 + 1) * 0.5;
+        if (causticVal > 0.7) {
+          let cAlpha = (causticVal - 0.7) * 0.15 * (0.5 + blendDepth * 0.5);
+          ctx.fillStyle = `rgba(180,230,255,${cAlpha})`;
+          let cx2 = px + (caustic1 * 0.5 + 0.5) * TILE;
+          let cy2 = py + (caustic2 * 0.5 + 0.5) * TILE;
+          ctx.beginPath();
+          ctx.arc(cx2, cy2, 4 + causticVal * 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Current/flow lines (subtle)
+        let flowPhase = waveTime * 0.6 + x * 0.15 + y * 0.1;
+        let flowAlpha = (Math.sin(flowPhase) * 0.5 + 0.5) * 0.025;
+        if (flowAlpha > 0.01) {
+          ctx.strokeStyle = `rgba(160,210,255,${flowAlpha})`;
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          let fx = px + (Math.sin(flowPhase * 2) * 0.3 + 0.5) * TILE;
+          ctx.moveTo(fx, py + 2);
+          ctx.quadraticCurveTo(fx + 8, py + TILE * 0.5 + Math.sin(flowPhase) * 5, fx - 4, py + TILE - 2);
+          ctx.stroke();
+        }
 
         // Rocky texture
         if (tile === 3) {
@@ -443,6 +507,9 @@ function drawTopDown(dt) {
     ctx.fillStyle = 'rgba(180, 190, 200, 0.4)';
     ctx.fillRect(0, 0, W, H);
   }
+
+  // Mini-map
+  drawMiniMap();
 }
 
 let npcBoats = [];
@@ -493,6 +560,69 @@ function drawNPCBoats(cx, cy) {
     ctx.fillRect(-8, -4, 8, 8);
     ctx.restore();
   }
+}
+
+function drawMiniMap() {
+  let mmW = 150, mmH = 150;
+  let mmX = 12, mmY = H - mmH - 12;
+  let scaleX = mmW / (MAP_W * TILE), scaleY = mmH / (MAP_H * TILE);
+
+  ctx.save();
+  // Background
+  ctx.beginPath();
+  ctx.roundRect(mmX, mmY, mmW, mmH, 8);
+  ctx.fillStyle = 'rgba(10, 22, 40, 0.8)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(232,213,163,0.3)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.clip();
+
+  // Simplified map tiles (draw every 4th tile for performance)
+  let step = 4;
+  let tileW = mmW / (MAP_W / step), tileH = mmH / (MAP_H / step);
+  for (let y = 0; y < MAP_H; y += step) {
+    for (let x = 0; x < MAP_W; x += step) {
+      let tile = mapData[y][x];
+      if (tile === 4) ctx.fillStyle = '#8B6914';
+      else if (tile === 0) ctx.fillStyle = '#0d2137';
+      else if (tile === 1) ctx.fillStyle = '#143652';
+      else if (tile === 2) ctx.fillStyle = '#1a5276';
+      else ctx.fillStyle = '#2c3e50';
+      ctx.fillRect(mmX + (x / MAP_W) * mmW, mmY + (y / MAP_H) * mmH, tileW + 1, tileH + 1);
+    }
+  }
+
+  // Dock highlight
+  ctx.strokeStyle = 'rgba(232,213,163,0.6)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(
+    mmX + (DOCK_X / MAP_W) * mmW, mmY + (DOCK_Y / MAP_H) * mmH,
+    (DOCK_W / MAP_W) * mmW, (DOCK_H / MAP_H) * mmH
+  );
+
+  // Trap buoys as tiny dots
+  for (let trap of state.traps) {
+    let tx = mmX + trap.x * scaleX, ty = mmY + trap.y * scaleY;
+    let elapsed = state.timeOfDay - trap.timeSet + (state.day - trap.daySet) * 24;
+    let readiness = Math.min(1, elapsed / getTrapFillTime());
+    ctx.fillStyle = readiness >= 0.8 ? '#27ae60' : readiness >= 0.3 ? '#f39c12' : '#e74c3c';
+    ctx.fillRect(tx - 1.5, ty - 1.5, 3, 3);
+  }
+
+  // Player dot (bright, pulsing)
+  let px = mmX + state.boat.x * scaleX, py = mmY + state.boat.y * scaleY;
+  let pulse = Math.sin(waveTime * 4) * 0.3 + 0.7;
+  ctx.fillStyle = `rgba(255, 255, 100, ${pulse})`;
+  ctx.beginPath();
+  ctx.arc(px, py, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(px, py, 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function drawBoat(cx, cy) {
