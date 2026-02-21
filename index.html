@@ -62,10 +62,11 @@ canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: 
 }
 #time-btn:hover { background: rgba(232,213,163,0.2); }
 #notification {
-  position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
-  background: rgba(10,22,40,0.9); border: 1px solid rgba(232,213,163,0.4);
+  position: absolute; top: 100px; left: 50%; transform: translateX(-50%);
+  background: rgba(10,22,40,0.95); border: 1px solid rgba(232,213,163,0.4);
   border-radius: 8px; padding: 10px 20px; color: #e8d5a3; font-size: 14px;
-  display: none; white-space: nowrap; transition: opacity 0.3s;
+  display: none; white-space: nowrap; transition: opacity 0.3s; z-index: 25;
+  max-width: 90vw; overflow: hidden; text-overflow: ellipsis;
 }
 #start-screen {
   position: fixed; top:0; left:0; width:100%; height:100%; z-index: 100;
