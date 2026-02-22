@@ -305,9 +305,9 @@ async function handleMessage(playerId, msg) {
     }
 
     case 'removeTrap': {
-      // Remove trap by position (after hauling/collecting)
+      // Remove trap by position (after hauling/collecting) — generous matching
       for (const [tid, trap] of traps) {
-        if (trap.ownerId === playerId && Math.abs(trap.x - msg.x) < 5 && Math.abs(trap.y - msg.y) < 5) {
+        if (trap.ownerId === playerId && Math.abs(trap.x - msg.x) < 50 && Math.abs(trap.y - msg.y) < 50) {
           traps.delete(tid);
           break;
         }

@@ -611,6 +611,11 @@ function sendDropTrap(x, y) {
   mp.ws.send(JSON.stringify({ type: 'dropTrap', x, y }));
 }
 
+function sendRemoveTrap(trap) {
+  if (!mp.ws || mp.ws.readyState !== 1) return;
+  mp.ws.send(JSON.stringify({ type: 'removeTrap', x: trap.x, y: trap.y }));
+}
+
 function sendHaulTrap(trapId) {
   if (!mp.ws || mp.ws.readyState !== 1) return;
   mp.ws.send(JSON.stringify({ type: 'haulTrap', trapId }));
@@ -1995,13 +2000,13 @@ function keepLobster(index, div) {
 function closeCatch() {
   state.catchOpen = false;
   document.getElementById('catch-panel').style.display = 'none';
+  // Notify server to remove this trap BEFORE clearing local ref
+  if (state.uwTrap) {
+    sendRemoveTrap(state.uwTrap);
+  }
   // Remove trap from local state
   let idx = state.traps.indexOf(state.uwTrap);
   if (idx >= 0) state.traps.splice(idx, 1);
-  // Also notify server to remove this trap for other players
-  if (mp.ws && mp.ws.readyState === 1 && state.uwTrap) {
-    mp.ws.send(JSON.stringify({ type: 'removeTrap', x: state.uwTrap.x, y: state.uwTrap.y }));
-  }
   // Return trap to supply
   state.trapSupply++;
   exitUnderwater();
