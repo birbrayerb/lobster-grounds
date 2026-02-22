@@ -304,6 +304,17 @@ async function handleMessage(playerId, msg) {
       break;
     }
 
+    case 'removeTrap': {
+      // Remove trap by position (after hauling/collecting)
+      for (const [tid, trap] of traps) {
+        if (trap.ownerId === playerId && Math.abs(trap.x - msg.x) < 5 && Math.abs(trap.y - msg.y) < 5) {
+          traps.delete(tid);
+          break;
+        }
+      }
+      break;
+    }
+
     case 'chat': {
       const text = (msg.text || '').slice(0, 200);
       if (!text) break;

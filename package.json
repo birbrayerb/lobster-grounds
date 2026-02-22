@@ -8,7 +8,7 @@
     "setup-db": "node setup-db.mjs"
   },
   "dependencies": {
-    "ws": "^8.16.0",
-    "@supabase/supabase-js": "^2.49.0"
+    "@supabase/supabase-js": "^2.97.0",
+    "ws": "^8.16.0"
   }
 }
