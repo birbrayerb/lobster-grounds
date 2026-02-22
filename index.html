@@ -341,7 +341,10 @@ async function authSignup() {
   
   const { data, error } = await sbClient.auth.signUp({
     email, password,
-    options: { data: { display_name: name } }
+    options: { 
+      data: { display_name: name },
+      emailRedirectTo: 'https://lobster-grounds.vercel.app'
+    }
   });
   document.getElementById('auth-signup-btn').disabled = false;
   
@@ -904,8 +907,8 @@ function drawTopDown(dt) {
   ctx.lineWidth = 2;
   ctx.strokeRect(dockPx, dockPy, DOCK_W * TILE, DOCK_H * TILE);
 
-  // Draw territory zones
-  for (let zone of mp.territories) {
+  // Draw territory zones (hidden until Territory Wars Phase 2)
+  if (false) for (let zone of mp.territories) {
     if (!zone.zone_bounds) continue;
     let zb = zone.zone_bounds;
     let zx = zb.x * TILE - cx, zy = zb.y * TILE - cy;
@@ -1186,8 +1189,8 @@ function drawMiniMap() {
   ctx.stroke();
   ctx.clip();
 
-  // Territory zones on minimap
-  for (let zone of mp.territories) {
+  // Territory zones on minimap (hidden until Territory Wars Phase 2)
+  if (false) for (let zone of mp.territories) {
     if (!zone.zone_bounds) continue;
     let zb = zone.zone_bounds;
     ctx.fillStyle = zb.color || 'rgba(100,100,255,0.15)';
